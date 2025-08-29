@@ -806,7 +806,7 @@
     <button class="admin-button" onclick="showPasswordModal()">Admin</button>
     
     <!-- Report Issue Button -->
-    <button class="report-button" onclick="reportIssue()">Report Issue</button>
+    <button class="report-button" onclick="window.open('https://form.asana.com/?k=MHfletS4m8vf5fLOYDPSyg&d=1202515054453280', '_blank');">Report Issue</button>
 
     <!-- Password Modal -->
     <div id="passwordModal" class="modal">
@@ -858,6 +858,12 @@
                             <input type="text" id="statusText" placeholder="e.g., June 27, 2025">
                         </div>
                     </div>
+                    
+                    <h3 style="color: var(--vertex-blue); margin: 25px 0 15px 0; border-top: 2px solid var(--border-color); padding-top: 25px;">Manage Sub-Items</h3>
+                    <div class="sub-items-list" id="subItemsContainer">
+                        <!-- Sub-items will be populated here -->
+                    </div>
+                    <button type="button" class="btn" onclick="addSubItemFromModal()" style="background: var(--vertex-gold); margin-bottom: 20px;">Add New Sub-Item</button>
                     
                     <button type="button" class="btn btn-success" onclick="saveSection()">Save Changes</button>
                     <button type="button" class="btn btn-danger" onclick="deleteSection()">Delete Section</button>
@@ -913,7 +919,7 @@
 
     <script>
         // Configuration
-        const ADMIN_PASSWORD = 'vertex2025';
+        const ADMIN_PASSWORD = 'FuzzySalmon51';
         let isAdminMode = false;
         let currentEditingId = null;
         let currentSubItemId = null;
@@ -1426,7 +1432,7 @@
             }
         }
 
-        // Edit section - enhanced with debugging
+        // Edit section - enhanced with sub-items management
         function editSection(id) {
             if (!isAdminMode) {
                 showNotification('Admin mode required', 'error');
@@ -1451,6 +1457,9 @@
             document.getElementById('sectionStatus').value = item.status || 'pending';
             document.getElementById('statusText').value = item.statusText || '';
             
+            // Populate sub-items list
+            updateSubItemsList();
+            
             // Show the modal
             document.getElementById('editModal').style.display = 'block';
             
@@ -1460,6 +1469,99 @@
             }, 100);
             
             showNotification('Edit form opened for: ' + item.title, 'info');
+        }
+
+        // Update the sub-items list in the edit modal
+        function updateSubItemsList() {
+            const container = document.getElementById('subItemsContainer');
+            if (!container) return;
+            
+            const subItems = migrationData[currentEditingId]?.subItems || {};
+            const subItemKeys = Object.keys(subItems);
+            
+            if (subItemKeys.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: var(--vertex-gray); padding: 20px;">No sub-items yet</div>';
+                return;
+            }
+            
+            container.innerHTML = subItemKeys.map((subId, index) => {
+                const subItem = subItems[subId];
+                return `
+                    <div class="sub-items-list-item" data-sub-id="${subId}">
+                        <div class="sub-item-info">
+                            <strong>${subItem.title}</strong><br>
+                            <small style="color: var(--vertex-gray);">${subItem.progress}% - ${getSubItemStatusLabel(subItem.status)}</small>
+                        </div>
+                        <div class="sub-item-controls">
+                            <button class="reorder-btn" onclick="moveSubItem('${subId}', -1)" ${index === 0 ? 'disabled' : ''}>↑</button>
+                            <button class="reorder-btn" onclick="moveSubItem('${subId}', 1)" ${index === subItemKeys.length - 1 ? 'disabled' : ''}>↓</button>
+                            <button class="sub-item-btn" onclick="editSubItemInModal('${subId}')">Edit</button>
+                            <button class="sub-item-btn" onclick="deleteSubItemFromModal('${subId}')">Delete</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Move sub-item up or down
+        function moveSubItem(subItemId, direction) {
+            const subItems = migrationData[currentEditingId].subItems;
+            const keys = Object.keys(subItems);
+            const currentIndex = keys.indexOf(subItemId);
+            const newIndex = currentIndex + direction;
+            
+            if (newIndex < 0 || newIndex >= keys.length) return;
+            
+            // Create new ordered object
+            const newSubItems = {};
+            const reorderedKeys = [...keys];
+            
+            // Swap positions
+            [reorderedKeys[currentIndex], reorderedKeys[newIndex]] = [reorderedKeys[newIndex], reorderedKeys[currentIndex]];
+            
+            // Rebuild object in new order
+            reorderedKeys.forEach(key => {
+                newSubItems[key] = subItems[key];
+            });
+            
+            migrationData[currentEditingId].subItems = newSubItems;
+            updateSubItemsList();
+            showNotification('Sub-item reordered', 'success');
+        }
+
+        // Edit sub-item from main modal
+        function editSubItemInModal(subItemId) {
+            currentSubItemId = subItemId;
+            const subItem = migrationData[currentEditingId].subItems[subItemId];
+            
+            document.getElementById('subItemTitle').value = subItem.title;
+            document.getElementById('subItemDescription').value = subItem.description || '';
+            document.getElementById('subItemProgress').value = subItem.progress;
+            document.getElementById('subItemStatus').value = subItem.status;
+            
+            document.getElementById('subItemModal').style.display = 'block';
+        }
+
+        // Delete sub-item from main modal
+        function deleteSubItemFromModal(subItemId) {
+            if (confirm('Are you sure you want to delete this sub-item?')) {
+                delete migrationData[currentEditingId].subItems[subItemId];
+                updateSubItemsList();
+                showNotification('Sub-item deleted', 'success');
+            }
+        }
+
+        // Add new sub-item from main modal
+        function addSubItemFromModal() {
+            currentSubItemId = 'subitem-' + Date.now();
+            
+            // Clear form
+            document.getElementById('subItemTitle').value = '';
+            document.getElementById('subItemDescription').value = '';
+            document.getElementById('subItemProgress').value = '0';
+            document.getElementById('subItemStatus').value = 'not-started';
+            
+            document.getElementById('subItemModal').style.display = 'block';
         }
 
         // Save section
