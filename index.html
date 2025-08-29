@@ -48,11 +48,10 @@
         async function loadFromGitHub() {
             const url = `https://api.github.com/repos/${GITHUB_CONFIG.OWNER}/${GITHUB_CONFIG.REPO}/contents/${GITHUB_CONFIG.FILE_PATH}`;
             const response = await fetch(url, {
-                headers: GITHUB_CONFIG.TOKEN ? {
-                    'Authorization': `token ${GITHUB_CONFIG.TOKEN}`,
-                    'Accept': 'application/vnd.github.v3+json'
-                } : {
-                    'Accept': 'application/vnd.github.v3+json'
+                headers: {
+                    'Authorization': `Bearer ${GITHUB_CONFIG.TOKEN}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                    'User-Agent': 'Migration-Tracker'
                 }
             });
             
@@ -61,28 +60,26 @@
                 const content = JSON.parse(atob(data.content.replace(/\s/g, '')));
                 migrationData = content;
                 localStorage.setItem('github_sha', data.sha);
+                console.log('✅ Loaded from GitHub successfully');
             } else if (response.status === 404) {
                 // File doesn't exist, create with default data
                 migrationData = getDefaultData();
-                if (GITHUB_CONFIG.TOKEN) {
-                    await saveToGitHub(); // Create the file
-                }
+                await saveToGitHub();
+                console.log('📁 Created new file on GitHub');
             } else {
-                throw new Error(`GitHub API error: ${response.status}`);
+                const errorText = await response.text();
+                console.error('GitHub load error:', response.status, errorText);
+                throw new Error(`GitHub API error: ${response.status} - ${errorText}`);
             }
         }
 
         // Save to GitHub repository
         async function saveToGitHub() {
-            if (!GITHUB_CONFIG.TOKEN) {
-                throw new Error('GitHub token not configured');
-            }
-
             const url = `https://api.github.com/repos/${GITHUB_CONFIG.OWNER}/${GITHUB_CONFIG.REPO}/contents/${GITHUB_CONFIG.FILE_PATH}`;
             const sha = localStorage.getItem('github_sha');
             
             const payload = {
-                message: `Update migration data - ${new Date().toISOString()}`,
+                message: `Update migration data - ${new Date().toLocaleString()}`,
                 content: btoa(JSON.stringify(migrationData, null, 2)),
                 branch: GITHUB_CONFIG.BRANCH
             };
@@ -91,12 +88,15 @@
                 payload.sha = sha;
             }
             
+            console.log('🔄 Saving to GitHub...', payload.message);
+            
             const response = await fetch(url, {
                 method: 'PUT',
                 headers: {
-                    'Authorization': `token ${GITHUB_CONFIG.TOKEN}`,
+                    'Authorization': `Bearer ${GITHUB_CONFIG.TOKEN}`,
                     'Accept': 'application/vnd.github.v3+json',
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'Migration-Tracker'
                 },
                 body: JSON.stringify(payload)
             });
@@ -104,8 +104,13 @@
             if (response.ok) {
                 const data = await response.json();
                 localStorage.setItem('github_sha', data.content.sha);
+                console.log('✅ Saved to GitHub successfully');
+                showNotification('✅ Changes saved to GitHub!', 'success');
             } else {
-                throw new Error(`GitHub save failed: ${response.status}`);
+                const errorText = await response.text();
+                console.error('GitHub save error:', response.status, errorText);
+                showNotification(`❌ GitHub save failed: ${response.status}`, 'error');
+                throw new Error(`GitHub save failed: ${response.status} - ${errorText}`);
             }
         }
 
