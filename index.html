@@ -7,6 +7,9 @@
     </div>
 
     <script>
+  // Cloudflare Worker endpoint (replace with your deployed URL)
+  const WORKER_URL = 'https://<your-worker>.workers.dev';
+
         // Configuration
         const ADMIN_PASSWORD = 'FuzzySalmon51';
         let isAdminMode = false;
@@ -45,20 +48,36 @@
         }
 
         // Load from GitHub repository
-async function loadFromGitHub() {
-            // Read public JSON directly without auth; disable caching so everyone sees fresh data
-            const url = `https://raw.githubusercontent.com/${GITHUB_CONFIG.OWNER}/${GITHUB_CONFIG.REPO}/${GITHUB_CONFIG.BRANCH}/${GITHUB_CONFIG.FILE_PATH}`;
-            const response = await fetch(url, { cache: 'no-store' });
-            if (!response.ok) {
-                throw new Error(`GitHub read failed: ${response.status} ${response.statusText}`);
+        async function loadFromGitHub() {
+            const url = `https://api.github.com/repos/${GITHUB_CONFIG.OWNER}/${GITHUB_CONFIG.REPO}/contents/${GITHUB_CONFIG.FILE_PATH}`;
+            const response = await fetch(url, {
+                headers: {
+                    'Authorization': `Bearer ${GITHUB_CONFIG.TOKEN}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                    'User-Agent': 'Migration-Tracker'
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                const content = JSON.parse(atob(data.content.replace(/\s/g, '')));
+                migrationData = content;
+                localStorage.setItem('github_sha', data.sha);
+                console.log('✅ Loaded from GitHub successfully');
+            } else if (response.status === 404) {
+                // File doesn't exist, create with default data
+                migrationData = getDefaultData();
+                await saveToGitHub();
+                console.log('📁 Created new file on GitHub');
+            } else {
+                const errorText = await response.text();
+                console.error('GitHub load error:', response.status, errorText);
+                throw new Error(`GitHub API error: ${response.status} - ${errorText}`);
             }
-            migrationData = await response.json();
-            // clear any stale sha since we aren't reading via Contents API here
-            localStorage.removeItem('github_sha');
         }
+
         // Save to GitHub repository
-async function saveToGitHub() {
-            // Persist via serverless function that holds the GitHub token securely
+        async function saveToGitHub() {
             const payload = {
                 owner: GITHUB_CONFIG.OWNER,
                 repo: GITHUB_CONFIG.REPO,
@@ -66,7 +85,7 @@ async function saveToGitHub() {
                 branch: GITHUB_CONFIG.BRANCH,
                 data: migrationData
             };
-            const resp = await fetch('/api/save', {
+            const resp = await fetch(WORKER_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -76,9 +95,9 @@ async function saveToGitHub() {
                 throw new Error(err.error || `GitHub Save Failed ${resp.status}`);
             }
             const out = await resp.json();
-            // optional: store commit id for debugging
             if (out.commit) localStorage.setItem('last_github_commit', out.commit);
         }
+
         // Load from localStorage (fallback)
         function loadFromLocalStorage() {
             const saved = localStorage.getItem('migrationData');
