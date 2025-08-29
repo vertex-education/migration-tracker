@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Migration Tracker</title>
-  <meta name="description" content="Read-only dashboard that renders data/migration-data.json from the public repo vertex-education/migration-tracker." />
+  <meta name="description" content="Dashboard that renders data/migration-data.json from the public repo vertex-education/migration-tracker." />
   <style>
     :root{
       --bg:#0a0f16; --panel:#0f1622; --border:#1c2940; --text:#e6eef8; --muted:#9fb0c6;
@@ -103,6 +103,8 @@
   <div class="footer">© Vertex Education</div>
 
 <script>
+// Public JSON loader + renderer. If you already have an applyConfigToUI(data) function from your
+// old page, you can swap renderAll(data) with applyConfigToUI(data) to reuse your existing UI.
 (function(){
   const OWNER = 'vertex-education';
   const REPO = 'migration-tracker';
@@ -173,7 +175,6 @@
 
   function renderOverview(obj){
     const top = obj && typeof obj === 'object' ? obj : {};
-    const info = [];
     const lu = top.lastUpdated || top.updated || top.last_update || top.timestamp;
     const title = top.title || top.name || 'Migration Tracker';
 
@@ -346,6 +347,9 @@
     try{
       const [obj, meta] = await Promise.all([fetchJSON(), fetchCommitMeta()]);
       dataCache = obj;
+
+      // If you have your own renderer, swap the next line:
+      // applyConfigToUI?.(obj);
       renderAll(obj);
 
       // Commit meta
