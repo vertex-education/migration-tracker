@@ -1,4 +1,809 @@
-<!DOCTYPE html>
+<button type="button" class="btn btn-success" onclick="saveSubItem()">Save Sub-Item</button>
+                    <button type="button" class="btn btn-danger" onclick="deleteSubItem()">Delete</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('subItemModal')">Cancel</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const ADMIN_PASSWORD = 'FuzzySalmon51';
+        let isAdminMode = false;
+        let currentEditingId = null;
+        let currentSubItemId = null;
+        let migrationData = {};
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadGitHubConfig();
+            loadData();
+            updateLastModified();
+        });
+
+        // Load GitHub configuration from localStorage (keeping for compatibility)
+        function loadGitHubConfig() {
+            // Token is now hardcoded, no need to load from storage
+            console.log('Using hardcoded GitHub configuration');
+        }
+
+        // Save GitHub configuration (keeping for compatibility) 
+        function saveGitHubConfig() {
+            // Token is hardcoded, no need to save
+        }
+
+        // Load data from GitHub or localStorage fallback
+        async function loadData() {
+            try {
+                await loadFromGitHub();
+                console.log('Data loaded from GitHub');
+            } catch (error) {
+                console.warn('GitHub loading failed, using localStorage:', error.message);
+                loadFromLocalStorage();
+            }
+            renderContent();
+        }
+
+        // Load from GitHub repository
+        async function loadFromGitHub() {
+            const url = `https://api.github.com/repos/${GITHUB_CONFIG.OWNER}/${GITHUB_CONFIG.REPO}/contents/${GITHUB_CONFIG.FILE_PATH}`;
+            const response = await fetch(url, {
+                headers: GITHUB_CONFIG.TOKEN ? {
+                    'Authorization': `token ${GITHUB_CONFIG.TOKEN}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                } : {
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                const content = JSON.parse(atob(data.content.replace(/\s/g, '')));
+                migrationData = content;
+                localStorage.setItem('github_sha', data.sha);
+            } else if (response.status === 404) {
+                // File doesn't exist, create with default data
+                migrationData = getDefaultData();
+                if (GITHUB_CONFIG.TOKEN) {
+                    await saveToGitHub(); // Create the file
+                }
+            } else {
+                throw new Error(`GitHub API error: ${response.status}`);
+            }
+        }
+
+        // Save to GitHub repository
+        async function saveToGitHub() {
+            if (!GITHUB_CONFIG.TOKEN) {
+                throw new Error('GitHub token not configured');
+            }
+
+            const url = `https://api.github.com/repos/${GITHUB_CONFIG.OWNER}/${GITHUB_CONFIG.REPO}/contents/${GITHUB_CONFIG.FILE_PATH}`;
+            const sha = localStorage.getItem('github_sha');
+            
+            const payload = {
+                message: `Update migration data - ${new Date().toISOString()}`,
+                content: btoa(JSON.stringify(migrationData, null, 2)),
+                branch: GITHUB_CONFIG.BRANCH
+            };
+            
+            if (sha) {
+                payload.sha = sha;
+            }
+            
+            const response = await fetch(url, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `token ${GITHUB_CONFIG.TOKEN}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                localStorage.setItem('github_sha', data.content.sha);
+            } else {
+                throw new Error(`GitHub save failed: ${response.status}`);
+            }
+        }
+
+        // Load from localStorage (fallback)
+        function loadFromLocalStorage() {
+            const saved = localStorage.getItem('migrationData');
+            if (saved) {
+                migrationData = JSON.parse(saved);
+            } else {
+                migrationData = getDefaultData();
+            }
+        }
+
+        // Save data using GitHub or localStorage
+        async function saveData() {
+            try {
+                await saveToGitHub();
+                console.log('Data saved to GitHub');
+            } catch (error) {
+                console.warn('GitHub save failed, saving to localStorage:', error.message);
+            }
+            
+            // Always save to localStorage as backup
+            localStorage.setItem('migrationData', JSON.stringify(migrationData));
+            localStorage.setItem('lastUpdated', new Date().toISOString());
+        }
+
+        // Get default migration data
+        function getDefaultData() {
+            return {
+                'sso-cutover': {
+                    title: 'SSO Cutover',
+                    description: 'Making applications like Workday use Microsoft instead of Google. Switching single sign-on provider for all integrated applications including Workday, learning management systems, and third-party tools.',
+                    status: 'in-progress',
+                    statusText: 'June 27, 2025 at 7:00 PM AZ Time',
+                    subItems: {
+                        'zendesk': {
+                            title: 'Zendesk Support Platform',
+                            description: 'Customer support ticket system migration',
+                            progress: 100,
+                            status: 'completed'
+                        },
+                        'blackline': {
+                            title: 'Blackline Financial System',
+                            description: 'Financial reconciliation platform',
+                            progress: 100,
+                            status: 'completed'
+                        },
+                        'quantum': {
+                            title: 'Quantum Analytics',
+                            description: 'Data analytics and reporting platform',
+                            progress: 100,
+                            status: 'completed'
+                        },
+                        'workday': {
+                            title: 'Workday HR Platform',
+                            description: 'Human resources management system',
+                            progress: 100,
+                            status: 'completed'
+                        },
+                        'tableau': {
+                            title: 'Tableau Business Intelligence',
+                            description: 'Data visualization and analytics tool',
+                            progress: 100,
+                            status: 'completed'
+                        },
+                        'chatgpt': {
+                            title: 'ChatGPT Integration',
+                            description: 'AI-powered assistant integration',
+                            progress: 25,
+                            status: 'in-progress'
+                        },
+                        'asana': {
+                            title: 'Asana Project Management',
+                            description: 'Team collaboration and project tracking',
+                            progress: 0,
+                            status: 'not-started'
+                        },
+                        'nectar': {
+                            title: 'Nectar Employee Recognition',
+                            description: 'Employee rewards and recognition platform',
+                            progress: 0,
+                            status: 'not-started'
+                        }
+                    }
+                }
+            };
+        }
+
+        // Calculate overall progress for a section
+        function calculateOverallProgress(subItems) {
+            if (!subItems || Object.keys(subItems).length === 0) return 0;
+            const items = Object.values(subItems);
+            const totalProgress = items.reduce((sum, item) => sum + item.progress, 0);
+            return Math.round(totalProgress / items.length);
+        }
+
+        // Handle status change in modal - auto-set progress to 100% when completed
+        function handleStatusChange() {
+            const statusSelect = document.getElementById('subItemStatus');
+            const progressInput = document.getElementById('subItemProgress');
+            
+            if (statusSelect.value === 'completed') {
+                progressInput.value = 100;
+            } else if (statusSelect.value === 'not-started') {
+                progressInput.value = 0;
+            }
+        }
+
+        // Quick complete function
+        function quickComplete(sectionId, subItemId) {
+            if (!isAdminMode) return;
+            
+            if (migrationData[sectionId] && migrationData[sectionId].subItems && migrationData[sectionId].subItems[subItemId]) {
+                migrationData[sectionId].subItems[subItemId].progress = 100;
+                migrationData[sectionId].subItems[subItemId].status = 'completed';
+                saveData();
+                renderContent();
+                updateLastModified();
+                showNotification('Task marked as complete!', 'success');
+            }
+        }
+
+        // Render migration content
+        function renderContent() {
+            const container = document.getElementById('migration-content');
+            container.innerHTML = '';
+
+            Object.keys(migrationData).forEach(id => {
+                const item = migrationData[id];
+                const overallProgress = calculateOverallProgress(item.subItems);
+                
+                const div = document.createElement('div');
+                div.className = 'migration-item';
+                div.setAttribute('data-id', id);
+                div.setAttribute('draggable', isAdminMode ? 'true' : 'false');
+                
+                div.innerHTML = `
+                    <div class="migration-header">
+                        <h2>${item.title}</h2>
+                        <div class="description">${item.description}</div>
+                        ${isAdminMode ? '<div style="position: absolute; top: 10px; left: 10px; color: rgba(255,255,255,0.7); font-size: 12px;">Click Edit or drag to reorder</div>' : ''}
+                    </div>
+                    
+                    <div class="migration-body">
+                        <div class="status-section">
+                            <div class="status-badge ${item.status}">
+                                ${getStatusLabel(item.status)}${item.statusText ? ' - ' + item.statusText : ''}
+                            </div>
+                        </div>
+                        
+                        <div class="overall-progress">
+                            <div class="progress-label">
+                                <span>Overall Progress</span>
+                                <span class="progress-percentage">${overallProgress}%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${overallProgress}%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="sub-items">
+                            <div class="sub-items-header">
+                                <div class="sub-items-title">Migration Components</div>
+                                ${isAdminMode ? `<button class="add-sub-item" onclick="addSubItem('${id}')">Add Item</button>` : ''}
+                            </div>
+                            ${renderSubItems(id, item.subItems)}
+                        </div>
+                    </div>
+                `;
+                
+                // Create and add the edit button separately to ensure proper event binding
+                if (isAdminMode) {
+                    const editButton = document.createElement('button');
+                    editButton.className = 'edit-button';
+                    editButton.textContent = 'Edit';
+                    editButton.title = 'Edit this section';
+                    editButton.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        editSection(id);
+                    });
+                    div.appendChild(editButton);
+                }
+                
+                container.appendChild(div);
+
+                // Add drag and drop event listeners if in admin mode
+                if (isAdminMode) {
+                    div.addEventListener('dragstart', handleDragStart);
+                    div.addEventListener('dragover', handleDragOver);
+                    div.addEventListener('drop', handleDrop);
+                    div.addEventListener('dragend', handleDragEnd);
+                }
+
+                // Animate progress bars after rendering
+                setTimeout(() => {
+                    const progressFills = div.querySelectorAll('.progress-fill, .sub-progress-fill');
+                    progressFills.forEach(fill => {
+                        const width = fill.style.width;
+                        fill.style.width = '0%';
+                        setTimeout(() => {
+                            fill.style.width = width;
+                        }, 100);
+                    });
+                }, 100);
+            });
+        }
+
+        // Drag and drop functionality
+        let draggedElement = null;
+
+        function handleDragStart(e) {
+            if (!isAdminMode) return;
+            draggedElement = e.target;
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', e.target.getAttribute('data-id'));
+        }
+
+        function handleDragOver(e) {
+            if (!isAdminMode) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const target = e.target.closest('.migration-item');
+            if (target && target !== draggedElement) {
+                target.classList.add('drag-over');
+            }
+        }
+
+        function handleDrop(e) {
+            if (!isAdminMode) return;
+            e.preventDefault();
+            const target = e.target.closest('.migration-item');
+            
+            if (target && target !== draggedElement) {
+                const draggedId = draggedElement.getAttribute('data-id');
+                const targetId = target.getAttribute('data-id');
+                
+                // Reorder the data
+                reorderSections(draggedId, targetId);
+            }
+            
+            // Clean up classes
+            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        }
+
+        function handleDragEnd(e) {
+            if (!isAdminMode) return;
+            e.target.classList.remove('dragging');
+            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+            draggedElement = null;
+        }
+
+        function reorderSections(draggedId, targetId) {
+            const keys = Object.keys(migrationData);
+            const draggedIndex = keys.indexOf(draggedId);
+            const targetIndex = keys.indexOf(targetId);
+            
+            if (draggedIndex === -1 || targetIndex === -1) return;
+            
+            // Create new ordered object
+            const newData = {};
+            const draggedData = migrationData[draggedId];
+            
+            keys.forEach((key, index) => {
+                if (key === draggedId) return; // Skip dragged item for now
+                
+                if (index === targetIndex) {
+                    // Insert dragged item before target
+                    newData[draggedId] = draggedData;
+                    newData[key] = migrationData[key];
+                } else {
+                    newData[key] = migrationData[key];
+                }
+            });
+            
+            // If target was the last item and we're dragging after it
+            if (targetIndex === keys.length - 1 && !newData[draggedId]) {
+                newData[draggedId] = draggedData;
+            }
+            
+            migrationData = newData;
+            saveData();
+            renderContent();
+            updateLastModified();
+            showNotification('Sections reordered', 'success');
+        }
+
+        // Render sub-items
+        function renderSubItems(sectionId, subItems) {
+            if (!subItems || Object.keys(subItems).length === 0) {
+                return '<div style="text-align: center; color: #707372; padding: 20px;">No components added yet</div>';
+            }
+
+            return Object.keys(subItems).map(subId => {
+                const subItem = subItems[subId];
+                return `
+                    <div class="sub-item">
+                        <div class="sub-item-header">
+                            <div class="sub-item-title" onclick="${isAdminMode ? `editSubItem('${sectionId}', '${subId}')` : ''}">${subItem.title}</div>
+                            ${isAdminMode ? `
+                                <div class="sub-item-actions">
+                                    <button class="sub-item-btn" onclick="editSubItem('${sectionId}', '${subId}')">Edit</button>
+                                    <button class="sub-item-btn" onclick="confirmDeleteSubItem('${sectionId}', '${subId}')">Delete</button>
+                                </div>
+                            ` : ''}
+                        </div>
+                        ${subItem.description ? `<div class="sub-item-description">${subItem.description}</div>` : ''}
+                        <div class="sub-progress-bar">
+                            <div class="sub-progress-fill" style="width: ${subItem.progress}%"></div>
+                        </div>
+                        <div class="sub-item-status">
+                            <span>${subItem.progress}% - ${getSubItemStatusLabel(subItem.status)}</span>
+                            ${isAdminMode && subItem.status !== 'completed' ? `
+                                <button class="status-complete-btn" onclick="quickComplete('${sectionId}', '${subId}')">Mark Complete</button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Get status label
+        function getStatusLabel(status) {
+            switch(status) {
+                case 'completed': return 'Completed';
+                case 'in-progress': return 'In Progress';
+                case 'pending': return 'Pending';
+                default: return 'Unknown';
+            }
+        }
+
+        // Get sub-item status label
+        function getSubItemStatusLabel(status) {
+            switch(status) {
+                case 'completed': return 'Completed';
+                case 'in-progress': return 'In Progress';
+                case 'not-started': return 'Not Started';
+                case 'blocked': return 'Blocked';
+                default: return 'Unknown';
+            }
+        }
+
+        // Show password modal
+        function showPasswordModal() {
+            document.getElementById('passwordModal').style.display = 'block';
+        }
+
+        // Close modal
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+            if (modalId === 'passwordModal') {
+                document.getElementById('adminPassword').value = '';
+            }
+        }
+
+        // Check password
+        function checkPassword() {
+            const password = document.getElementById('adminPassword').value;
+            if (password === ADMIN_PASSWORD) {
+                isAdminMode = true;
+                closeModal('passwordModal');
+                document.getElementById('adminPanel').classList.add('active');
+                renderContent(); // Re-render to show edit buttons
+                showNotification('Admin mode activated', 'success');
+            } else {
+                showNotification('Incorrect password', 'error');
+            }
+        }
+
+        function editSection(id) {
+            if (!isAdminMode) return;
+            
+            currentEditingId = id;
+            const item = migrationData[id];
+            
+            if (!item) return;
+            
+            document.getElementById('sectionTitle').value = item.title || '';
+            document.getElementById('sectionDescription').value = item.description || '';
+            document.getElementById('sectionStatus').value = item.status || 'pending';
+            document.getElementById('statusText').value = item.statusText || '';
+            
+            updateSubItemsList();
+            document.getElementById('editModal').style.display = 'block';
+        }
+
+        function updateSubItemsList() {
+            const container = document.getElementById('subItemsContainer');
+            if (!container) return;
+            
+            const subItems = migrationData[currentEditingId]?.subItems || {};
+            const subItemKeys = Object.keys(subItems);
+            
+            if (subItemKeys.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: var(--vertex-gray); padding: 20px;">No sub-items yet</div>';
+                return;
+            }
+            
+            container.innerHTML = subItemKeys.map((subId, index) => {
+                const subItem = subItems[subId];
+                return `
+                    <div class="sub-items-list-item" data-sub-id="${subId}">
+                        <div class="sub-item-info">
+                            <strong>${subItem.title}</strong><br>
+                            <small style="color: var(--vertex-gray);">${subItem.progress}% - ${getSubItemStatusLabel(subItem.status)}</small>
+                        </div>
+                        <div class="sub-item-controls">
+                            <button class="reorder-btn" onclick="moveSubItem('${subId}', -1)" ${index === 0 ? 'disabled' : ''}>↑</button>
+                            <button class="reorder-btn" onclick="moveSubItem('${subId}', 1)" ${index === subItemKeys.length - 1 ? 'disabled' : ''}>↓</button>
+                            <button class="sub-item-btn" onclick="editSubItemInModal('${subId}')">Edit</button>
+                            <button class="sub-item-btn" onclick="deleteSubItemFromModal('${subId}')">Delete</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function addNewSection() {
+            if (!isAdminMode) return;
+            
+            const id = 'section-' + Date.now();
+            currentEditingId = id;
+            
+            document.getElementById('sectionTitle').value = '';
+            document.getElementById('sectionDescription').value = '';
+            document.getElementById('sectionStatus').value = 'pending';
+            document.getElementById('statusText').value = '';
+            
+            document.getElementById('editModal').style.display = 'block';
+        }
+
+        function saveSection() {
+            const title = document.getElementById('sectionTitle').value.trim();
+            const description = document.getElementById('sectionDescription').value.trim();
+            const status = document.getElementById('sectionStatus').value;
+            const statusText = document.getElementById('statusText').value.trim();
+            
+            if (!title || !description) {
+                showNotification('Title and description are required', 'error');
+                return;
+            }
+            
+            if (!currentEditingId) {
+                currentEditingId = 'section-' + Date.now();
+            }
+            
+            const existingSubItems = migrationData[currentEditingId]?.subItems || {};
+            
+            migrationData[currentEditingId] = {
+                title,
+                description,
+                status,
+                statusText,
+                subItems: existingSubItems
+            };
+            
+            saveData();
+            renderContent();
+            updateLastModified();
+            closeModal('editModal');
+            showNotification('Section saved successfully', 'success');
+            currentEditingId = null;
+        }
+
+        function deleteSection() {
+            if (!currentEditingId) return;
+            
+            const sectionTitle = migrationData[currentEditingId]?.title || 'this section';
+            
+            if (confirm(`Are you sure you want to delete "${sectionTitle}"?`)) {
+                delete migrationData[currentEditingId];
+                saveData();
+                renderContent();
+                updateLastModified();
+                closeModal('editModal');
+                showNotification('Section deleted successfully', 'success');
+                currentEditingId = null;
+            }
+        }
+
+        // Sub-item functions
+        function addSubItem(sectionId) {
+            if (!isAdminMode) return;
+            
+            currentEditingId = sectionId;
+            currentSubItemId = 'subitem-' + Date.now();
+            
+            document.getElementById('subItemTitle').value = '';
+            document.getElementById('subItemDescription').value = '';
+            document.getElementById('subItemProgress').value = '0';
+            document.getElementById('subItemStatus').value = 'not-started';
+            
+            document.getElementById('subItemModal').style.display = 'block';
+        }
+
+        function editSubItem(sectionId, subItemId) {
+            if (!isAdminMode) return;
+            
+            currentEditingId = sectionId;
+            currentSubItemId = subItemId;
+            const subItem = migrationData[sectionId].subItems[subItemId];
+            
+            document.getElementById('subItemTitle').value = subItem.title;
+            document.getElementById('subItemDescription').value = subItem.description || '';
+            document.getElementById('subItemProgress').value = subItem.progress;
+            document.getElementById('subItemStatus').value = subItem.status;
+            
+            document.getElementById('subItemModal').style.display = 'block';
+        }
+
+        function saveSubItem() {
+            if (!currentEditingId || !currentSubItemId) return;
+            
+            const title = document.getElementById('subItemTitle').value.trim();
+            const description = document.getElementById('subItemDescription').value.trim();
+            const progress = parseInt(document.getElementById('subItemProgress').value);
+            const status = document.getElementById('subItemStatus').value;
+            
+            if (!title) {
+                showNotification('Title is required', 'error');
+                return;
+            }
+            
+            if (!migrationData[currentEditingId].subItems) {
+                migrationData[currentEditingId].subItems = {};
+            }
+            
+            migrationData[currentEditingId].subItems[currentSubItemId] = {
+                title,
+                description,
+                progress: Math.max(0, Math.min(100, progress)),
+                status
+            };
+            
+            saveData();
+            renderContent();
+            updateLastModified();
+            
+            // Update the sub-items list in the edit modal if it's open
+            if (document.getElementById('editModal').style.display === 'block') {
+                updateSubItemsList();
+            }
+            
+            closeModal('subItemModal');
+            showNotification('Sub-item saved successfully', 'success');
+            currentEditingId = null;
+            currentSubItemId = null;
+        }
+
+        function deleteSubItem() {
+            if (!isAdminMode || !currentEditingId || !currentSubItemId) return;
+            
+            if (confirm('Are you sure you want to delete this sub-item?')) {
+                delete migrationData[currentEditingId].subItems[currentSubItemId];
+                saveData();
+                renderContent();
+                updateLastModified();
+                closeModal('subItemModal');
+                showNotification('Sub-item deleted successfully', 'success');
+                currentEditingId = null;
+                currentSubItemId = null;
+            }
+        }
+
+        function confirmDeleteSubItem(sectionId, subItemId) {
+            if (!isAdminMode) return;
+            
+            if (confirm('Are you sure you want to delete this sub-item?')) {
+                delete migrationData[sectionId].subItems[subItemId];
+                saveData();
+                renderContent();
+                updateLastModified();
+                showNotification('Sub-item deleted successfully', 'success');
+            }
+        }
+
+        // Additional modal management functions
+        function addSubItemFromModal() {
+            // Don't reset currentEditingId - keep the current section being edited
+            currentSubItemId = 'subitem-' + Date.now();
+            
+            document.getElementById('subItemTitle').value = '';
+            document.getElementById('subItemDescription').value = '';
+            document.getElementById('subItemProgress').value = '0';
+            document.getElementById('subItemStatus').value = 'not-started';
+            
+            document.getElementById('subItemModal').style.display = 'block';
+        }
+
+        function moveSubItem(subItemId, direction) {
+            const subItems = migrationData[currentEditingId].subItems;
+            const keys = Object.keys(subItems);
+            const currentIndex = keys.indexOf(subItemId);
+            const newIndex = currentIndex + direction;
+            
+            if (newIndex < 0 || newIndex >= keys.length) return;
+            
+            const newSubItems = {};
+            const reorderedKeys = [...keys];
+            
+            [reorderedKeys[currentIndex], reorderedKeys[newIndex]] = [reorderedKeys[newIndex], reorderedKeys[currentIndex]];
+            
+            reorderedKeys.forEach(key => {
+                newSubItems[key] = subItems[key];
+            });
+            
+            migrationData[currentEditingId].subItems = newSubItems;
+            updateSubItemsList();
+            showNotification('Sub-item reordered', 'success');
+        }
+
+        function editSubItemInModal(subItemId) {
+            currentSubItemId = subItemId;
+            const subItem = migrationData[currentEditingId].subItems[subItemId];
+            
+            document.getElementById('subItemTitle').value = subItem.title;
+            document.getElementById('subItemDescription').value = subItem.description || '';
+            document.getElementById('subItemProgress').value = subItem.progress;
+            document.getElementById('subItemStatus').value = subItem.status;
+            
+            document.getElementById('subItemModal').style.display = 'block';
+        }
+
+        function deleteSubItemFromModal(subItemId) {
+            if (confirm('Are you sure you want to delete this sub-item?')) {
+                delete migrationData[currentEditingId].subItems[subItemId];
+                updateSubItemsList();
+                showNotification('Sub-item deleted', 'success');
+            }
+        }
+
+        // Show notification
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: ${type === 'success' ? 'var(--tertiary-green)' : type === 'error' ? 'var(--danger-red)' : 'var(--vertex-blue)'};
+                color: white;
+                padding: 15px 20px;
+                border-radius: 8px;
+                z-index: 3000;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+                animation: slideIn 0.3s ease-out;
+                font-weight: 500;
+            `;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease-in forwards';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        // Update last modified time
+        function updateLastModified() {
+            const lastUpdated = localStorage.getItem('lastUpdated');
+            if (lastUpdated) {
+                const date = new Date(lastUpdated);
+                document.getElementById('last-update-time').textContent = date.toLocaleString();
+            } else {
+                document.getElementById('last-update-time').textContent = new Date().toLocaleString();
+            }
+        }
+
+        // Event listeners
+        window.addEventListener('click', function(event) {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (event.target === modal) {
+                    closeModal(modal.id);
+                }
+            });
+        });
+
+        document.addEventListener('keypress', function(event) {
+            if (event.target.id === 'adminPassword' && event.key === 'Enter') {
+                checkPassword();
+            }
+        });
+
+        // Console helper functions
+        console.log('Migration Tracker with GitHub Integration Active');
+        console.log('- Data automatically syncs with GitHub repository');
+        console.log('- GitHub Config:', GITHUB_CONFIG);
+    </script>
+</body>
+</html><!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -8,31 +813,14 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     
-    <!-- GitHub Pages Configuration -->
+    <!-- GitHub Repository Configuration -->
     <script>
-        // GitHub Repository Configuration for persistence
         const GITHUB_CONFIG = {
-            // Update these values for your GitHub repository
-            OWNER: 'your-username',           // Your GitHub username
-            REPO: 'migration-tracker',        // Your repository name
-            FILE_PATH: 'data/migration-data.json', // Path to data file in repo
-            BRANCH: 'main',                   // Branch name (usually 'main' or 'master')
-            TOKEN: '',                        // GitHub Personal Access Token (set in admin)
-            
-            // Alternative: Use GitHub Gist instead of repository
-            GIST_ID: '',                      // Optional: Use a GitHub Gist instead
-            GIST_FILENAME: 'migration-data.json',
-            
-            // Fallback options
-            USE_GITHUB: false,                // Set to true to enable GitHub persistence
-            USE_GIST: false                   // Set to true to use Gist instead of repo
-        };
-        
-        // Simple file-based persistence (no database needed)
-        const FILE_CONFIG = {
-            // For simple file-based hosting
-            DATA_FILE_URL: './migration-data.json',  // Relative path to data file
-            USE_FILE: true                           // Fallback to file-based system
+            OWNER: 'vertex-education',
+            REPO: 'migration-tracker', 
+            FILE_PATH: 'migration-data.json',
+            BRANCH: 'main',
+            TOKEN: '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'
         };
     </script>
     
@@ -573,6 +1361,14 @@
             overflow-y: auto;
         }
 
+        .modal-body .btn {
+            position: static !important;
+            top: auto !important;
+            right: auto !important;
+            float: none !important;
+            margin: 5px 10px 5px 0;
+        }
+
         .form-group {
             margin-bottom: 20px;
         }
@@ -623,12 +1419,73 @@
             border-radius: 8px;
             cursor: pointer;
             margin-right: 10px;
+            margin-bottom: 5px;
             font-size: 14px;
             font-weight: 600;
             transition: all 0.3s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
+            display: inline-block;
+            position: relative;
+            vertical-align: top;
+        }
+
+        .modal .btn {
+            position: static !important;
+            float: none !important;
+            top: auto !important;
+            right: auto !important;
+            bottom: auto !important;
+            left: auto !important;
+        }
+
+        form .btn,
+        #subItemForm .btn,
+        #editForm .btn {
+            position: static !important;
+            display: inline-block !important;
+            float: none !important;
+            margin: 5px 10px 5px 0 !important;
+        }
+
+        /* Ensure form buttons stay in their container */
+        .modal-body form {
+            position: relative;
+        }
+
+        .modal-body button[type="button"] {
+            position: static !important;
+        }
+
+        /* Fix for buttons appearing at top of page */
+        body > .btn:not(.admin-button):not(.report-button):not(.add-section-btn) {
+            display: none !important;
+        }
+
+        /* Ensure modal buttons are visible and properly positioned */
+        .modal .btn,
+        .modal-body .btn,
+        #subItemModal .btn,
+        #editModal .btn {
+            display: inline-block !important;
+            position: static !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+
+        /* Force visibility for sub-item modal buttons specifically */
+        #subItemModal form .btn,
+        #subItemModal .modal-body .btn,
+        #subItemModal button[type="button"] {
+            display: inline-block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            position: relative !important;
+            margin: 5px 10px 5px 0 !important;
+            background: var(--vertex-blue) !important;
+            color: white !important;
+            padding: 12px 20px !important;
+            border: none !important;
+            border-radius: 8px !important;
+            cursor: pointer !important;
         }
 
         .btn:hover {
@@ -735,6 +1592,37 @@
             background: #25a043;
         }
 
+        .sub-items-list-item {
+            background: var(--light-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .sub-item-info {
+            flex: 1;
+        }
+        .sub-item-controls {
+            display: flex;
+            gap: 5px;
+        }
+        .reorder-btn {
+            background: var(--vertex-gold);
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 10px;
+        }
+        .reorder-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
         @media (max-width: 768px) {
             .header-content {
                 flex-direction: column;
@@ -769,6 +1657,15 @@
                 font-size: 14px;
             }
         }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
     </style>
 </head>
 <body>
@@ -790,7 +1687,6 @@
         <!-- Admin Panel -->
         <div id="adminPanel" class="admin-panel">
             <button class="add-section-btn" onclick="addNewSection()">Add New Migration Section</button>
-            <button class="add-section-btn" onclick="setupGitHubIntegration()" style="background: var(--vertex-gold); margin-left: 10px;">Setup GitHub Integration</button>
         </div>
         
         <div id="migration-content">
@@ -909,1121 +1805,4 @@
                         </div>
                     </div>
                     
-                    <button type="button" class="btn btn-success" onclick="saveSubItem()">Save Sub-Item</button>
-                    <button type="button" class="btn btn-danger" onclick="deleteSubItem()">Delete</button>
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('subItemModal')">Cancel</button>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Configuration
-        const ADMIN_PASSWORD = 'FuzzySalmon51';
-        let isAdminMode = false;
-        let currentEditingId = null;
-        let currentSubItemId = null;
-        let migrationData = {};
-
-        // Initialize
-        document.addEventListener('DOMContentLoaded', function() {
-            loadData();
-            updateLastModified();
-        });
-
-        // Load data from various persistence methods
-        async function loadData() {
-            try {
-                if (GITHUB_CONFIG.USE_GITHUB && GITHUB_CONFIG.TOKEN) {
-                    await loadFromGitHub();
-                } else if (GITHUB_CONFIG.USE_GIST && GITHUB_CONFIG.GIST_ID) {
-                    await loadFromGist();
-                } else if (FILE_CONFIG.USE_FILE) {
-                    await loadFromFile();
-                } else {
-                    throw new Error('No persistence method configured');
-                }
-                console.log('Data loaded successfully from external source');
-            } catch (error) {
-                console.warn('External data loading failed, using localStorage:', error.message);
-                loadFromLocalStorage();
-            }
-            renderContent();
-        }
-
-        // Save data using configured persistence method
-        async function saveData() {
-            try {
-                if (GITHUB_CONFIG.USE_GITHUB && GITHUB_CONFIG.TOKEN) {
-                    await saveToGitHub();
-                } else if (GITHUB_CONFIG.USE_GIST && GITHUB_CONFIG.GIST_ID && GITHUB_CONFIG.TOKEN) {
-                    await saveToGist();
-                } else {
-                    throw new Error('GitHub persistence not configured');
-                }
-                console.log('Data saved to external source');
-            } catch (error) {
-                console.warn('External save failed, saving to localStorage:', error.message);
-            }
-            
-            // Always save to localStorage as backup
-            localStorage.setItem('migrationData', JSON.stringify(migrationData));
-            localStorage.setItem('lastUpdated', new Date().toISOString());
-        }
-
-        // Load from GitHub repository
-        async function loadFromGitHub() {
-            const url = `https://api.github.com/repos/${GITHUB_CONFIG.OWNER}/${GITHUB_CONFIG.REPO}/contents/${GITHUB_CONFIG.FILE_PATH}`;
-            const response = await fetch(url, {
-                headers: {
-                    'Authorization': `token ${GITHUB_CONFIG.TOKEN}`,
-                    'Accept': 'application/vnd.github.v3+json'
-                }
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                const content = JSON.parse(atob(data.content));
-                migrationData = content;
-                // Store SHA for updates
-                localStorage.setItem('github_sha', data.sha);
-            } else {
-                throw new Error(`GitHub API error: ${response.status}`);
-            }
-        }
-
-        // Save to GitHub repository
-        async function saveToGitHub() {
-            const url = `https://api.github.com/repos/${GITHUB_CONFIG.OWNER}/${GITHUB_CONFIG.REPO}/contents/${GITHUB_CONFIG.FILE_PATH}`;
-            const sha = localStorage.getItem('github_sha');
-            
-            const payload = {
-                message: `Update migration data - ${new Date().toISOString()}`,
-                content: btoa(JSON.stringify(migrationData, null, 2)),
-                branch: GITHUB_CONFIG.BRANCH
-            };
-            
-            if (sha) {
-                payload.sha = sha;
-            }
-            
-            const response = await fetch(url, {
-                method: 'PUT',
-                headers: {
-                    'Authorization': `token ${GITHUB_CONFIG.TOKEN}`,
-                    'Accept': 'application/vnd.github.v3+json',
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                localStorage.setItem('github_sha', data.content.sha);
-            } else {
-                throw new Error(`GitHub save failed: ${response.status}`);
-            }
-        }
-
-        // Load from GitHub Gist
-        async function loadFromGist() {
-            const url = `https://api.github.com/gists/${GITHUB_CONFIG.GIST_ID}`;
-            const response = await fetch(url);
-            
-            if (response.ok) {
-                const gist = await response.json();
-                const fileContent = gist.files[GITHUB_CONFIG.GIST_FILENAME].content;
-                migrationData = JSON.parse(fileContent);
-            } else {
-                throw new Error(`Gist load failed: ${response.status}`);
-            }
-        }
-
-        // Save to GitHub Gist
-        async function saveToGist() {
-            const url = `https://api.github.com/gists/${GITHUB_CONFIG.GIST_ID}`;
-            
-            const payload = {
-                description: `Migration Tracker Data - Updated ${new Date().toISOString()}`,
-                files: {
-                    [GITHUB_CONFIG.GIST_FILENAME]: {
-                        content: JSON.stringify(migrationData, null, 2)
-                    }
-                }
-            };
-            
-            const response = await fetch(url, {
-                method: 'PATCH',
-                headers: {
-                    'Authorization': `token ${GITHUB_CONFIG.TOKEN}`,
-                    'Accept': 'application/vnd.github.v3+json',
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            });
-            
-            if (!response.ok) {
-                throw new Error(`Gist save failed: ${response.status}`);
-            }
-        }
-
-        // Load from static file
-        async function loadFromFile() {
-            const response = await fetch(FILE_CONFIG.DATA_FILE_URL);
-            if (response.ok) {
-                migrationData = await response.json();
-            } else {
-                throw new Error(`File load failed: ${response.status}`);
-            }
-        }
-
-        // Load from localStorage (fallback)
-        function loadFromLocalStorage() {
-            const saved = localStorage.getItem('migrationData');
-            if (saved) {
-                migrationData = JSON.parse(saved);
-            } else {
-                migrationData = getDefaultData();
-            }
-        }
-
-        // Get default migration data
-        function getDefaultData() {
-            return {
-                'sso-cutover': {
-                    title: 'SSO Cutover',
-                    description: 'Making applications like Workday use Microsoft instead of Google. Switching single sign-on provider for all integrated applications including Workday, learning management systems, and third-party tools.',
-                    status: 'in-progress',
-                    statusText: 'June 27, 2025 at 7:00 PM AZ Time',
-                    subItems: {
-                        'zendesk': {
-                            title: 'Zendesk Support Platform',
-                            description: 'Customer support ticket system migration',
-                            progress: 100,
-                            status: 'completed'
-                        },
-                        'blackline': {
-                            title: 'Blackline Financial System',
-                            description: 'Financial reconciliation platform',
-                            progress: 100,
-                            status: 'completed'
-                        },
-                        'quantum': {
-                            title: 'Quantum Analytics',
-                            description: 'Data analytics and reporting platform',
-                            progress: 100,
-                            status: 'completed'
-                        },
-                        'workday': {
-                            title: 'Workday HR Platform',
-                            description: 'Human resources management system',
-                            progress: 100,
-                            status: 'completed'
-                        },
-                        'tableau': {
-                            title: 'Tableau Business Intelligence',
-                            description: 'Data visualization and analytics tool',
-                            progress: 100,
-                            status: 'completed'
-                        },
-                        'chatgpt': {
-                            title: 'ChatGPT Integration',
-                            description: 'AI-powered assistant integration',
-                            progress: 25,
-                            status: 'in-progress'
-                        },
-                        'asana': {
-                            title: 'Asana Project Management',
-                            description: 'Team collaboration and project tracking',
-                            progress: 0,
-                            status: 'not-started'
-                        },
-                        'nectar': {
-                            title: 'Nectar Employee Recognition',
-                            description: 'Employee rewards and recognition platform',
-                            progress: 0,
-                            status: 'not-started'
-                        }
-                    }
-                }
-            };
-        }
-
-        // Calculate overall progress for a section
-        function calculateOverallProgress(subItems) {
-            if (!subItems || Object.keys(subItems).length === 0) return 0;
-            const items = Object.values(subItems);
-            const totalProgress = items.reduce((sum, item) => sum + item.progress, 0);
-            return Math.round(totalProgress / items.length);
-        }
-
-        // Handle status change in modal - auto-set progress to 100% when completed
-        function handleStatusChange() {
-            const statusSelect = document.getElementById('subItemStatus');
-            const progressInput = document.getElementById('subItemProgress');
-            
-            if (statusSelect.value === 'completed') {
-                progressInput.value = 100;
-            } else if (statusSelect.value === 'not-started') {
-                progressInput.value = 0;
-            }
-        }
-
-        // Quick complete function
-        function quickComplete(sectionId, subItemId) {
-            if (!isAdminMode) return;
-            
-            if (migrationData[sectionId] && migrationData[sectionId].subItems && migrationData[sectionId].subItems[subItemId]) {
-                migrationData[sectionId].subItems[subItemId].progress = 100;
-                migrationData[sectionId].subItems[subItemId].status = 'completed';
-                saveData();
-                renderContent();
-                updateLastModified();
-                showNotification('Task marked as complete!', 'success');
-            }
-        }
-
-        // Render migration content
-        function renderContent() {
-            const container = document.getElementById('migration-content');
-            container.innerHTML = '';
-
-            Object.keys(migrationData).forEach(id => {
-                const item = migrationData[id];
-                const overallProgress = calculateOverallProgress(item.subItems);
-                
-                const div = document.createElement('div');
-                div.className = 'migration-item';
-                div.setAttribute('data-id', id);
-                div.setAttribute('draggable', isAdminMode ? 'true' : 'false');
-                
-                div.innerHTML = `
-                    <div class="migration-header">
-                        <h2>${item.title}</h2>
-                        <div class="description">${item.description}</div>
-                        ${isAdminMode ? '<div style="position: absolute; top: 10px; left: 10px; color: rgba(255,255,255,0.7); font-size: 12px;">📋 Click Edit or drag to reorder</div>' : ''}
-                    </div>
-                    
-                    <div class="migration-body">
-                        <div class="status-section">
-                            <div class="status-badge ${item.status}">
-                                ${getStatusLabel(item.status)}${item.statusText ? ' - ' + item.statusText : ''}
-                            </div>
-                        </div>
-                        
-                        <div class="overall-progress">
-                            <div class="progress-label">
-                                <span>Overall Progress</span>
-                                <span class="progress-percentage">${overallProgress}%</span>
-                            </div>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: ${overallProgress}%"></div>
-                            </div>
-                        </div>
-                        
-                        <div class="sub-items">
-                            <div class="sub-items-header">
-                                <div class="sub-items-title">Migration Components</div>
-                                ${isAdminMode ? `<button class="add-sub-item" onclick="addSubItem('${id}')">Add Item</button>` : ''}
-                            </div>
-                            ${renderSubItems(id, item.subItems)}
-                        </div>
-                    </div>
-                `;
-                
-                // Create and add the edit button separately to ensure proper event binding
-                if (isAdminMode) {
-                    const editButton = document.createElement('button');
-                    editButton.className = 'edit-button';
-                    editButton.textContent = 'Edit';
-                    editButton.title = 'Edit this section';
-                    editButton.addEventListener('click', function(e) {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        console.log('Edit button clicked for section:', id);
-                        editSection(id);
-                    });
-                    div.appendChild(editButton);
-                }
-                
-                container.appendChild(div);
-
-                // Add drag and drop event listeners if in admin mode
-                if (isAdminMode) {
-                    div.addEventListener('dragstart', handleDragStart);
-                    div.addEventListener('dragover', handleDragOver);
-                    div.addEventListener('drop', handleDrop);
-                    div.addEventListener('dragend', handleDragEnd);
-                }
-
-                // Animate progress bars after rendering
-                setTimeout(() => {
-                    const progressFills = div.querySelectorAll('.progress-fill, .sub-progress-fill');
-                    progressFills.forEach(fill => {
-                        const width = fill.style.width;
-                        fill.style.width = '0%';
-                        setTimeout(() => {
-                            fill.style.width = width;
-                        }, 100);
-                    });
-                }, 100);
-            });
-        }
-
-        // Drag and drop functionality
-        let draggedElement = null;
-
-        function handleDragStart(e) {
-            if (!isAdminMode) return;
-            draggedElement = e.target;
-            e.target.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/html', e.target.getAttribute('data-id'));
-        }
-
-        function handleDragOver(e) {
-            if (!isAdminMode) return;
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            const target = e.target.closest('.migration-item');
-            if (target && target !== draggedElement) {
-                target.classList.add('drag-over');
-            }
-        }
-
-        function handleDrop(e) {
-            if (!isAdminMode) return;
-            e.preventDefault();
-            const target = e.target.closest('.migration-item');
-            
-            if (target && target !== draggedElement) {
-                const draggedId = draggedElement.getAttribute('data-id');
-                const targetId = target.getAttribute('data-id');
-                
-                // Reorder the data
-                reorderSections(draggedId, targetId);
-            }
-            
-            // Clean up classes
-            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-        }
-
-        function handleDragEnd(e) {
-            if (!isAdminMode) return;
-            e.target.classList.remove('dragging');
-            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-            draggedElement = null;
-        }
-
-        function reorderSections(draggedId, targetId) {
-            const keys = Object.keys(migrationData);
-            const draggedIndex = keys.indexOf(draggedId);
-            const targetIndex = keys.indexOf(targetId);
-            
-            if (draggedIndex === -1 || targetIndex === -1) return;
-            
-            // Create new ordered object
-            const newData = {};
-            const draggedData = migrationData[draggedId];
-            
-            keys.forEach((key, index) => {
-                if (key === draggedId) return; // Skip dragged item for now
-                
-                if (index === targetIndex) {
-                    // Insert dragged item before target
-                    newData[draggedId] = draggedData;
-                    newData[key] = migrationData[key];
-                } else {
-                    newData[key] = migrationData[key];
-                }
-            });
-            
-            // If target was the last item and we're dragging after it
-            if (targetIndex === keys.length - 1 && !newData[draggedId]) {
-                newData[draggedId] = draggedData;
-            }
-            
-            migrationData = newData;
-            saveData();
-            renderContent();
-            updateLastModified();
-            showNotification('Sections reordered', 'success');
-        }
-
-        // Render sub-items
-        function renderSubItems(sectionId, subItems) {
-            if (!subItems || Object.keys(subItems).length === 0) {
-                return '<div style="text-align: center; color: #707372; padding: 20px;">No components added yet</div>';
-            }
-
-            return Object.keys(subItems).map(subId => {
-                const subItem = subItems[subId];
-                return `
-                    <div class="sub-item">
-                        <div class="sub-item-header">
-                            <div class="sub-item-title" onclick="${isAdminMode ? `editSubItem('${sectionId}', '${subId}')` : ''}">${subItem.title}</div>
-                            ${isAdminMode ? `
-                                <div class="sub-item-actions">
-                                    <button class="sub-item-btn" onclick="editSubItem('${sectionId}', '${subId}')">Edit</button>
-                                    <button class="sub-item-btn" onclick="confirmDeleteSubItem('${sectionId}', '${subId}')">Delete</button>
-                                </div>
-                            ` : ''}
-                        </div>
-                        ${subItem.description ? `<div class="sub-item-description">${subItem.description}</div>` : ''}
-                        <div class="sub-progress-bar">
-                            <div class="sub-progress-fill" style="width: ${subItem.progress}%"></div>
-                        </div>
-                        <div class="sub-item-status">
-                            <span>${subItem.progress}% - ${getSubItemStatusLabel(subItem.status)}</span>
-                            ${isAdminMode && subItem.status !== 'completed' ? `
-                                <button class="status-complete-btn" onclick="quickComplete('${sectionId}', '${subId}')">Mark Complete</button>
-                            ` : ''}
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        // Get status label
-        function getStatusLabel(status) {
-            switch(status) {
-                case 'completed': return 'Completed';
-                case 'in-progress': return 'In Progress';
-                case 'pending': return 'Pending';
-                default: return 'Unknown';
-            }
-        }
-
-        // Get sub-item status label
-        function getSubItemStatusLabel(status) {
-            switch(status) {
-                case 'completed': return 'Completed';
-                case 'in-progress': return 'In Progress';
-                case 'not-started': return 'Not Started';
-                case 'blocked': return 'Blocked';
-                default: return 'Unknown';
-            }
-        }
-
-        // Show password modal
-        function showPasswordModal() {
-            document.getElementById('passwordModal').style.display = 'block';
-        }
-
-        // Close modal
-        function closeModal(modalId) {
-            document.getElementById(modalId).style.display = 'none';
-            if (modalId === 'passwordModal') {
-                document.getElementById('adminPassword').value = '';
-            }
-        }
-
-        // Check password
-        function checkPassword() {
-            const password = document.getElementById('adminPassword').value;
-            if (password === ADMIN_PASSWORD) {
-                isAdminMode = true;
-                closeModal('passwordModal');
-                document.getElementById('adminPanel').classList.add('active');
-                renderContent(); // Re-render to show edit buttons
-                showNotification('Admin mode activated', 'success');
-            } else {
-                showNotification('Incorrect password', 'error');
-            }
-        }
-
-        // Edit section - enhanced with sub-items management
-        function editSection(id) {
-            if (!isAdminMode) {
-                showNotification('Admin mode required', 'error');
-                return;
-            }
-            
-            console.log('Editing section:', id);
-            console.log('Migration data:', migrationData[id]);
-            
-            currentEditingId = id;
-            const item = migrationData[id];
-            
-            if (!item) {
-                showNotification('Section not found: ' + id, 'error');
-                console.error('Section not found:', id, 'Available sections:', Object.keys(migrationData));
-                return;
-            }
-            
-            // Populate the form with existing data
-            document.getElementById('sectionTitle').value = item.title || '';
-            document.getElementById('sectionDescription').value = item.description || '';
-            document.getElementById('sectionStatus').value = item.status || 'pending';
-            document.getElementById('statusText').value = item.statusText || '';
-            
-            // Populate sub-items list
-            updateSubItemsList();
-            
-            // Show the modal
-            document.getElementById('editModal').style.display = 'block';
-            
-            // Focus on the title field
-            setTimeout(() => {
-                document.getElementById('sectionTitle').focus();
-            }, 100);
-            
-            showNotification('Edit form opened for: ' + item.title, 'info');
-        }
-
-        // Update the sub-items list in the edit modal
-        function updateSubItemsList() {
-            const container = document.getElementById('subItemsContainer');
-            if (!container) return;
-            
-            const subItems = migrationData[currentEditingId]?.subItems || {};
-            const subItemKeys = Object.keys(subItems);
-            
-            if (subItemKeys.length === 0) {
-                container.innerHTML = '<div style="text-align: center; color: var(--vertex-gray); padding: 20px;">No sub-items yet</div>';
-                return;
-            }
-            
-            container.innerHTML = subItemKeys.map((subId, index) => {
-                const subItem = subItems[subId];
-                return `
-                    <div class="sub-items-list-item" data-sub-id="${subId}">
-                        <div class="sub-item-info">
-                            <strong>${subItem.title}</strong><br>
-                            <small style="color: var(--vertex-gray);">${subItem.progress}% - ${getSubItemStatusLabel(subItem.status)}</small>
-                        </div>
-                        <div class="sub-item-controls">
-                            <button class="reorder-btn" onclick="moveSubItem('${subId}', -1)" ${index === 0 ? 'disabled' : ''}>↑</button>
-                            <button class="reorder-btn" onclick="moveSubItem('${subId}', 1)" ${index === subItemKeys.length - 1 ? 'disabled' : ''}>↓</button>
-                            <button class="sub-item-btn" onclick="editSubItemInModal('${subId}')">Edit</button>
-                            <button class="sub-item-btn" onclick="deleteSubItemFromModal('${subId}')">Delete</button>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        // Move sub-item up or down
-        function moveSubItem(subItemId, direction) {
-            const subItems = migrationData[currentEditingId].subItems;
-            const keys = Object.keys(subItems);
-            const currentIndex = keys.indexOf(subItemId);
-            const newIndex = currentIndex + direction;
-            
-            if (newIndex < 0 || newIndex >= keys.length) return;
-            
-            // Create new ordered object
-            const newSubItems = {};
-            const reorderedKeys = [...keys];
-            
-            // Swap positions
-            [reorderedKeys[currentIndex], reorderedKeys[newIndex]] = [reorderedKeys[newIndex], reorderedKeys[currentIndex]];
-            
-            // Rebuild object in new order
-            reorderedKeys.forEach(key => {
-                newSubItems[key] = subItems[key];
-            });
-            
-            migrationData[currentEditingId].subItems = newSubItems;
-            updateSubItemsList();
-            showNotification('Sub-item reordered', 'success');
-        }
-
-        // Edit sub-item from main modal
-        function editSubItemInModal(subItemId) {
-            currentSubItemId = subItemId;
-            const subItem = migrationData[currentEditingId].subItems[subItemId];
-            
-            document.getElementById('subItemTitle').value = subItem.title;
-            document.getElementById('subItemDescription').value = subItem.description || '';
-            document.getElementById('subItemProgress').value = subItem.progress;
-            document.getElementById('subItemStatus').value = subItem.status;
-            
-            document.getElementById('subItemModal').style.display = 'block';
-        }
-
-        // Delete sub-item from main modal
-        function deleteSubItemFromModal(subItemId) {
-            if (confirm('Are you sure you want to delete this sub-item?')) {
-                delete migrationData[currentEditingId].subItems[subItemId];
-                updateSubItemsList();
-                showNotification('Sub-item deleted', 'success');
-            }
-        }
-
-        // Add new sub-item from main modal
-        function addSubItemFromModal() {
-            currentSubItemId = 'subitem-' + Date.now();
-            
-            // Clear form
-            document.getElementById('subItemTitle').value = '';
-            document.getElementById('subItemDescription').value = '';
-            document.getElementById('subItemProgress').value = '0';
-            document.getElementById('subItemStatus').value = 'not-started';
-            
-            document.getElementById('subItemModal').style.display = 'block';
-        }
-
-        // Save section
-        function saveSection() {
-            const title = document.getElementById('sectionTitle').value.trim();
-            const description = document.getElementById('sectionDescription').value.trim();
-            const status = document.getElementById('sectionStatus').value;
-            const statusText = document.getElementById('statusText').value.trim();
-            
-            if (!title || !description) {
-                showNotification('Title and description are required', 'error');
-                return;
-            }
-            
-            // If no currentEditingId, this is a new section
-            if (!currentEditingId) {
-                currentEditingId = 'section-' + Date.now();
-            }
-            
-            // Preserve existing sub-items when editing, or initialize empty object for new sections
-            const existingSubItems = migrationData[currentEditingId]?.subItems || {};
-            
-            // Update or create the section
-            migrationData[currentEditingId] = {
-                title,
-                description,
-                status,
-                statusText,
-                subItems: existingSubItems
-            };
-            
-            saveData();
-            renderContent();
-            updateLastModified();
-            closeModal('editModal');
-            showNotification('Section saved successfully', 'success');
-            currentEditingId = null;
-        }
-
-        // Delete section
-        function deleteSection() {
-            if (!currentEditingId) {
-                showNotification('No section selected for deletion', 'error');
-                return;
-            }
-            
-            const sectionTitle = migrationData[currentEditingId]?.title || 'this section';
-            
-            if (confirm(`Are you sure you want to delete "${sectionTitle}" and all its sub-items? This action cannot be undone.`)) {
-                delete migrationData[currentEditingId];
-                saveData();
-                renderContent();
-                updateLastModified();
-                closeModal('editModal');
-                showNotification('Section deleted successfully', 'success');
-                currentEditingId = null;
-            }
-        }
-
-        // Add new section
-        function addNewSection() {
-            if (!isAdminMode) return;
-            
-            const id = 'section-' + Date.now();
-            currentEditingId = id;
-            
-            // Clear form
-            document.getElementById('sectionTitle').value = '';
-            document.getElementById('sectionDescription').value = '';
-            document.getElementById('sectionStatus').value = 'pending';
-            document.getElementById('statusText').value = '';
-            
-            document.getElementById('editModal').style.display = 'block';
-        }
-
-        // Add sub-item
-        function addSubItem(sectionId) {
-            if (!isAdminMode) return;
-            
-            currentEditingId = sectionId;
-            currentSubItemId = 'subitem-' + Date.now();
-            
-            // Clear form
-            document.getElementById('subItemTitle').value = '';
-            document.getElementById('subItemProgress').value = '0';
-            document.getElementById('subItemStatus').value = 'not-started';
-            
-            document.getElementById('subItemModal').style.display = 'block';
-        }
-
-        // Edit sub-item
-        function editSubItem(sectionId, subItemId) {
-            if (!isAdminMode) return;
-            
-            currentEditingId = sectionId;
-            currentSubItemId = subItemId;
-            const subItem = migrationData[sectionId].subItems[subItemId];
-            
-            document.getElementById('subItemTitle').value = subItem.title;
-            document.getElementById('subItemProgress').value = subItem.progress;
-            document.getElementById('subItemStatus').value = subItem.status;
-            
-            document.getElementById('subItemModal').style.display = 'block';
-        }
-
-        // Save sub-item
-        function saveSubItem() {
-            if (!currentEditingId || !currentSubItemId) return;
-            
-            const title = document.getElementById('subItemTitle').value;
-            const progress = parseInt(document.getElementById('subItemProgress').value);
-            const status = document.getElementById('subItemStatus').value;
-            
-            if (!title) {
-                showNotification('Title is required', 'error');
-                return;
-            }
-            
-            if (!migrationData[currentEditingId].subItems) {
-                migrationData[currentEditingId].subItems = {};
-            }
-            
-            migrationData[currentEditingId].subItems[currentSubItemId] = {
-                title,
-                progress: Math.max(0, Math.min(100, progress)),
-                status
-            };
-            
-            saveData();
-            renderContent();
-            updateLastModified();
-            closeModal('subItemModal');
-            showNotification('Sub-item saved successfully', 'success');
-            currentEditingId = null;
-            currentSubItemId = null;
-        }
-
-        // Confirm delete sub-item
-        function confirmDeleteSubItem(sectionId, subItemId) {
-            if (!isAdminMode) return;
-            
-            if (confirm('Are you sure you want to delete this sub-item?')) {
-                delete migrationData[sectionId].subItems[subItemId];
-                saveData();
-                renderContent();
-                updateLastModified();
-                showNotification('Sub-item deleted successfully', 'success');
-            }
-        }
-
-        // Delete sub-item (from modal)
-        function deleteSubItem() {
-            if (!isAdminMode) return;
-            
-            if (!currentEditingId || !currentSubItemId) return;
-            
-            if (confirm('Are you sure you want to delete this sub-item?')) {
-                delete migrationData[currentEditingId].subItems[currentSubItemId];
-                saveData();
-                renderContent();
-                updateLastModified();
-                closeModal('subItemModal');
-                showNotification('Sub-item deleted successfully', 'success');
-                currentEditingId = null;
-                currentSubItemId = null;
-            }
-        }
-
-        // Show notification
-        function showNotification(message, type = 'info') {
-            const notification = document.createElement('div');
-            notification.className = `notification ${type}`;
-            notification.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: ${type === 'success' ? 'var(--tertiary-green)' : type === 'error' ? 'var(--danger-red)' : 'var(--vertex-blue)'};
-                color: white;
-                padding: 15px 20px;
-                border-radius: 8px;
-                z-index: 3000;
-                box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-                animation: slideIn 0.3s ease-out;
-                font-weight: 500;
-            `;
-            notification.textContent = message;
-            
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                notification.style.animation = 'slideOut 0.3s ease-in forwards';
-                setTimeout(() => {
-                    if (notification.parentNode) {
-                        notification.parentNode.removeChild(notification);
-                    }
-                }, 300);
-            }, 3000);
-        }
-
-        // Add notification animations
-        const notificationStyles = document.createElement('style');
-        notificationStyles.textContent = `
-            @keyframes slideIn {
-                from { transform: translateX(100%); opacity: 0; }
-                to { transform: translateX(0); opacity: 1; }
-            }
-            @keyframes slideOut {
-                from { transform: translateX(0); opacity: 1; }
-                to { transform: translateX(100%); opacity: 0; }
-            }
-        `;
-        document.head.appendChild(notificationStyles);
-
-        // Update last modified time
-        function updateLastModified() {
-            const lastUpdated = localStorage.getItem('lastUpdated');
-            if (lastUpdated) {
-                const date = new Date(lastUpdated);
-                document.getElementById('last-update-time').textContent = date.toLocaleString();
-            } else {
-                document.getElementById('last-update-time').textContent = new Date().toLocaleString();
-            }
-        }
-
-        // Close modals when clicking outside
-        window.addEventListener('click', function(event) {
-            const modals = document.querySelectorAll('.modal');
-            modals.forEach(modal => {
-                if (event.target === modal) {
-                    closeModal(modal.id);
-                }
-            });
-        });
-
-        // Handle Enter key in password field
-        document.addEventListener('keypress', function(event) {
-            if (event.target.id === 'adminPassword' && event.key === 'Enter') {
-                checkPassword();
-            }
-        });
-
-        // Configure GitHub integration (admin only)
-        function setupGitHubIntegration() {
-            if (!isAdminMode) {
-                showNotification('Admin mode required', 'error');
-                return;
-            }
-            
-            const modal = document.createElement('div');
-            modal.className = 'modal';
-            modal.style.display = 'block';
-            modal.innerHTML = `
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <div class="modal-title">Setup GitHub Integration</div>
-                        <span class="close" onclick="this.closest('.modal').remove()">&times;</span>
-                    </div>
-                    <div class="modal-body">
-                        <h3 style="color: var(--vertex-blue); margin-bottom: 15px;">Step 1: Repository Information</h3>
-                        <div class="form-group">
-                            <label>GitHub Organization/Username:</label>
-                            <input type="text" id="githubOwner" value="${GITHUB_CONFIG.OWNER}" placeholder="your-org-name">
-                            <small style="color: var(--vertex-gray);">For enterprise accounts, this is your organization name</small>
-                        </div>
-                        <div class="form-group">
-                            <label>Repository Name:</label>
-                            <input type="text" id="githubRepo" value="${GITHUB_CONFIG.REPO}" placeholder="migration-tracker">
-                        </div>
-                        <div class="form-group">
-                            <label>Data File Path in Repository:</label>
-                            <input type="text" id="githubPath" value="${GITHUB_CONFIG.FILE_PATH}" placeholder="data/migration-data.json">
-                            <small style="color: var(--vertex-gray);">This file will be created automatically</small>
-                        </div>
-                        
-                        <h3 style="color: var(--vertex-blue); margin: 25px 0 15px 0;">Step 2: Authentication</h3>
-                        <div class="form-group">
-                            <label>GitHub Personal Access Token:</label>
-                            <input type="password" id="githubToken" value="${GITHUB_CONFIG.TOKEN}" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
-                            <small style="color: var(--vertex-gray);">
-                                <strong>Create token:</strong> GitHub → Settings → Developer Settings → Personal Access Tokens → Generate new token<br>
-                                <strong>Required permissions:</strong> repo (Full control of private repositories)
-                            </small>
-                        </div>
-                        
-                        <h3 style="color: var(--vertex-blue); margin: 25px 0 15px 0;">Step 3: Enable Integration</h3>
-                        <div style="margin: 20px 0;">
-                            <label style="display: flex; align-items: center;">
-                                <input type="checkbox" id="useGitHub" ${GITHUB_CONFIG.USE_GITHUB ? 'checked' : ''}> 
-                                <span style="margin-left: 8px;"><strong>Enable GitHub persistence</strong></span>
-                            </label>
-                            <small style="color: var(--vertex-gray); margin-left: 24px;">
-                                When enabled, all changes will save to your GitHub repository automatically
-                            </small>
-                        </div>
-                        
-                        <div style="margin-top: 30px; padding: 15px; background: rgba(255,176,0,0.1); border-radius: 8px;">
-                            <strong style="color: var(--vertex-blue);">Your GitHub Pages URL will be:</strong><br>
-                            <span style="color: var(--vertex-gray); font-family: monospace;">https://</span><input type="text" id="displayOwner" style="border: none; background: transparent; font-family: monospace; width: auto;" readonly><span style="color: var(--vertex-gray); font-family: monospace;">.github.io/</span><input type="text" id="displayRepo" style="border: none; background: transparent; font-family: monospace; width: auto;" readonly>
-                        </div>
-                        
-                        <div style="margin-top: 20px;">
-                            <button class="btn btn-success" onclick="saveGitHubConfig()">Save & Test Configuration</button>
-                            <button class="btn btn-secondary" onclick="this.closest('.modal').remove()">Cancel</button>
-                            <button class="btn" onclick="testGitHubConnection()" style="background: var(--vertex-gold);">Test Connection</button>
-                        </div>
-                    </div>
-                </div>
-            `;
-            document.body.appendChild(modal);
-            
-            // Update display URLs as user types
-            document.getElementById('githubOwner').addEventListener('input', updateDisplayURL);
-            document.getElementById('githubRepo').addEventListener('input', updateDisplayURL);
-            updateDisplayURL();
-        }
-
-        function updateDisplayURL() {
-            const owner = document.getElementById('githubOwner').value || 'your-org';
-            const repo = document.getElementById('githubRepo').value || 'repository';
-            document.getElementById('displayOwner').value = owner;
-            document.getElementById('displayRepo').value = repo;
-        }
-
-        function saveGitHubConfig() {
-            GITHUB_CONFIG.OWNER = document.getElementById('githubOwner').value.trim();
-            GITHUB_CONFIG.REPO = document.getElementById('githubRepo').value.trim();
-            GITHUB_CONFIG.FILE_PATH = document.getElementById('githubPath').value.trim();
-            GITHUB_CONFIG.TOKEN = document.getElementById('githubToken').value.trim();
-            GITHUB_CONFIG.USE_GITHUB = document.getElementById('useGitHub').checked;
-            
-            if (!GITHUB_CONFIG.OWNER || !GITHUB_CONFIG.REPO || !GITHUB_CONFIG.TOKEN) {
-                showNotification('Please fill in all required fields', 'error');
-                return;
-            }
-            
-            // Save config to localStorage
-            localStorage.setItem('github_config', JSON.stringify(GITHUB_CONFIG));
-            
-            document.querySelector('.modal').remove();
-            showNotification('GitHub configuration saved', 'success');
-            
-            // Test the connection immediately
-            setTimeout(testGitHubConnection, 1000);
-        }
-
-        // Load GitHub config from localStorage
-        function loadGitHubConfig() {
-            const saved = localStorage.getItem('github_config');
-            if (saved) {
-                Object.assign(GITHUB_CONFIG, JSON.parse(saved));
-            }
-        }
-
-        // Test GitHub connection
-        async function testGitHubConnection() {
-            if (!isAdminMode) {
-                console.log('Admin mode required');
-                return;
-            }
-            
-            try {
-                if (GITHUB_CONFIG.USE_GIST) {
-                    const response = await fetch(`https://api.github.com/gists/${GITHUB_CONFIG.GIST_ID}`);
-                    if (response.ok) {
-                        showNotification('GitHub Gist connection successful!', 'success');
-                    } else {
-                        throw new Error(`Gist not found: ${response.status}`);
-                    }
-                } else {
-                    const response = await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.OWNER}/${GITHUB_CONFIG.REPO}`, {
-                        headers: GITHUB_CONFIG.TOKEN ? { 'Authorization': `token ${GITHUB_CONFIG.TOKEN}` } : {}
-                    });
-                    if (response.ok) {
-                        showNotification('GitHub repository connection successful!', 'success');
-                    } else {
-                        throw new Error(`Repository not accessible: ${response.status}`);
-                    }
-                }
-            } catch (error) {
-                showNotification('GitHub connection failed: ' + error.message, 'error');
-                console.error('GitHub connection error:', error);
-            }
-        }
-
-        // Initialize GitHub config on load
-        document.addEventListener('DOMContentLoaded', function() {
-            loadGitHubConfig();
-        });
-
-        // Export data for server deployment
-        function exportForServer() {
-            if (!isAdminMode) {
-                console.log('Admin mode required');
-                return;
-            }
-            
-            const dataStr = JSON.stringify(migrationData, null, 2);
-            const dataBlob = new Blob([dataStr], {type: 'application/json'});
-            const url = URL.createObjectURL(dataBlob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = 'migration-data.json';
-            link.click();
-            URL.revokeObjectURL(url);
-            showNotification('Backup file exported! (Database saves automatically)', 'success');
-        }
-
-        // Export data for backup
-        function exportData() {
-            if (!isAdminMode) {
-                console.log('Admin mode required');
-                return;
-            }
-            
-            const dataStr = JSON.stringify(migrationData, null, 2);
-            const dataBlob = new Blob([dataStr], {type: 'application/json'});
-            const url = URL.createObjectURL(dataBlob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = 'migration-data-backup-' + new Date().toISOString().split('T')[0] + '.json';
-            link.click();
-            URL.revokeObjectURL(url);
-            showNotification('Data exported successfully', 'success');
-        }
-
-        function importData(jsonData) {
-            if (!isAdminMode) {
-                console.log('Admin mode required');
-                return;
-            }
-            
-            try {
-                migrationData = JSON.parse(jsonData);
-                saveData();
-                renderContent();
-                updateLastModified();
-                showNotification('Data imported successfully', 'success');
-            } catch (e) {
-                console.error('Invalid JSON data:', e);
-                showNotification('Import failed: Invalid JSON data', 'error');
-            }
-        }
-
-        // Reset all data (admin only, console access)
-        function resetData() {
-            if (!isAdminMode) {
-                console.log('Admin mode required');
-                return;
-            }
-            
-            if (confirm('This will delete ALL migration data. Are you absolutely sure?')) {
-                localStorage.removeItem('migrationData');
-                localStorage.removeItem('lastUpdated');
-                location.reload();
-            }
-        }
-
-        // Console helper functions info
-        console.log('Migration Tracker Admin Console Commands:');
-        console.log('- exportData(): Export migration data as JSON');
-        console.log('- importData(jsonString): Import migration data from JSON');
-        console.log('- resetData(): Reset all data (WARNING: Destructive!)');
-    </script>
-</body>
-</html>
+                    <button type="button" class="btn btn-success" onclick="saveSubItem()">
