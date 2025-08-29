@@ -7,8 +7,8 @@
     </div>
 
     <script>
-  // Cloudflare Worker endpoint (replace with your deployed URL)
-  const WORKER_URL = 'broad-bar-39ce.cody-bell.workers.dev';
+  // Cloudflare Worker base URL (set this to your Worker)
+  const WORKER_BASE = 'broad-bar-39ce.cody-bell.workers.dev';
 
         // Configuration
         const ADMIN_PASSWORD = 'FuzzySalmon51';
@@ -78,24 +78,43 @@
 
         // Save to GitHub repository
         async function saveToGitHub() {
+            const url = `https://api.github.com/repos/${GITHUB_CONFIG.OWNER}/${GITHUB_CONFIG.REPO}/contents/${GITHUB_CONFIG.FILE_PATH}`;
+            const sha = localStorage.getItem('github_sha');
+            
             const payload = {
-                owner: GITHUB_CONFIG.OWNER,
-                repo: GITHUB_CONFIG.REPO,
-                path: GITHUB_CONFIG.FILE_PATH,
-                branch: GITHUB_CONFIG.BRANCH,
-                data: migrationData
+                message: `Update migration data - ${new Date().toLocaleString()}`,
+                content: btoa(JSON.stringify(migrationData, null, 2)),
+                branch: GITHUB_CONFIG.BRANCH
             };
-            const resp = await fetch(WORKER_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+            
+            if (sha) {
+                payload.sha = sha;
+            }
+            
+            console.log('🔄 Saving to GitHub...', payload.message);
+            
+            const response = await fetch(url, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${GITHUB_CONFIG.TOKEN}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'Migration-Tracker'
+                },
                 body: JSON.stringify(payload)
             });
-            if (!resp.ok) {
-                const err = await resp.json().catch(() => ({}));
-                throw new Error(err.error || `GitHub Save Failed ${resp.status}`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                localStorage.setItem('github_sha', data.content.sha);
+                console.log('✅ Saved to GitHub successfully');
+                showNotification('✅ Changes saved to GitHub!', 'success');
+            } else {
+                const errorText = await response.text();
+                console.error('GitHub save error:', response.status, errorText);
+                showNotification(`❌ GitHub save failed: ${response.status}`, 'error');
+                throw new Error(`GitHub save failed: ${response.status} - ${errorText}`);
             }
-            const out = await resp.json();
-            if (out.commit) localStorage.setItem('last_github_commit', out.commit);
         }
 
         // Load from localStorage (fallback)
@@ -807,9 +826,9 @@
         const GITHUB_CONFIG = {
             OWNER: 'vertex-education',
             REPO: 'migration-tracker', 
-            FILE_PATH: 'data/migration-data.json',
+            FILE_PATH: 'migration-data.json',
             BRANCH: 'main',
-            TOKEN: ''
+            \1\2
         };
     </script>
     
@@ -1795,4 +1814,3 @@
                     </div>
                     
                     <button type="button" class="btn btn-success" onclick="saveSubItem()">
-
