@@ -1,0 +1,1818 @@
+<button type="button" class="btn btn-success" onclick="saveSubItem()">Save Sub-Item</button>
+                    <button type="button" class="btn btn-danger" onclick="deleteSubItem()">Delete</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('subItemModal')">Cancel</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+  // Cloudflare Worker base URL (set this to your Worker)
+  const WORKER_BASE = 'https://broad-bar-39ce.cody-bell.workers.dev';
+
+        // Configuration
+        const ADMIN_PASSWORD = 'FuzzySalmon51';
+        let isAdminMode = false;
+        let currentEditingId = null;
+        let currentSubItemId = null;
+        let migrationData = {};
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadGitHubConfig();
+            loadData();
+            updateLastModified();
+        });
+
+        // Load GitHub configuration from localStorage (keeping for compatibility)
+        function loadGitHubConfig() {
+            // Token is now hardcoded, no need to load from storage
+            console.log('Using hardcoded GitHub configuration');
+        }
+
+        // Save GitHub configuration (keeping for compatibility) 
+        function saveGitHubConfig() {
+            // Token is hardcoded, no need to save
+        }
+
+        // Load data from GitHub or localStorage fallback
+        async function loadData() {
+            try {
+                await loadFromGitHub();
+                console.log('Data loaded from GitHub');
+            } catch (error) {
+                console.warn('GitHub loading failed, using localStorage:', error.message);
+                loadFromLocalStorage();
+            }
+            renderContent();
+        }
+
+        // Load from GitHub repository
+        async function loadFromGitHub() {
+            const url = `https://api.github.com/repos/${GITHUB_CONFIG.OWNER}/${GITHUB_CONFIG.REPO}/contents/${GITHUB_CONFIG.FILE_PATH}`;
+            const response = await fetch(url, {
+                headers: {
+                    'Authorization': `Bearer ${GITHUB_CONFIG.TOKEN}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                    'User-Agent': 'Migration-Tracker'
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                const content = JSON.parse(atob(data.content.replace(/\s/g, '')));
+                migrationData = content;
+                localStorage.setItem('github_sha', data.sha);
+                console.log('✅ Loaded from GitHub successfully');
+            } else if (response.status === 404) {
+                // File doesn't exist, create with default data
+                migrationData = getDefaultData();
+                await saveToGitHub();
+                console.log('📁 Created new file on GitHub');
+            } else {
+                const errorText = await response.text();
+                console.error('GitHub load error:', response.status, errorText);
+                throw new Error(`GitHub API error: ${response.status} - ${errorText}`);
+            }
+        }
+
+        // Save to GitHub repository
+        async function saveToGitHub() {
+            const url = `https://api.github.com/repos/${GITHUB_CONFIG.OWNER}/${GITHUB_CONFIG.REPO}/contents/${GITHUB_CONFIG.FILE_PATH}`;
+            const sha = localStorage.getItem('github_sha');
+            
+            const payload = {
+                message: `Update migration data - ${new Date().toLocaleString()}`,
+                content: btoa(JSON.stringify(migrationData, null, 2)),
+                branch: GITHUB_CONFIG.BRANCH
+            };
+            
+            if (sha) {
+                payload.sha = sha;
+            }
+            
+            console.log('🔄 Saving to GitHub...', payload.message);
+            
+            const response = await fetch(url, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${GITHUB_CONFIG.TOKEN}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'Migration-Tracker'
+                },
+                body: JSON.stringify(payload)
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                localStorage.setItem('github_sha', data.content.sha);
+                console.log('✅ Saved to GitHub successfully');
+                showNotification('✅ Changes saved to GitHub!', 'success');
+            } else {
+                const errorText = await response.text();
+                console.error('GitHub save error:', response.status, errorText);
+                showNotification(`❌ GitHub save failed: ${response.status}`, 'error');
+                throw new Error(`GitHub save failed: ${response.status} - ${errorText}`);
+            }
+        }
+
+        // Load from localStorage (fallback)
+        function loadFromLocalStorage() {
+            const saved = localStorage.getItem('migrationData');
+            if (saved) {
+                migrationData = JSON.parse(saved);
+            } else {
+                migrationData = getDefaultData();
+            }
+        }
+
+        // Save data using GitHub or localStorage
+        async function saveData() {
+            try {
+                await saveToGitHub();
+                console.log('Data saved to GitHub');
+            } catch (error) {
+                console.warn('GitHub save failed, saving to localStorage:', error.message);
+            }
+            
+            // Always save to localStorage as backup
+            localStorage.setItem('migrationData', JSON.stringify(migrationData));
+            localStorage.setItem('lastUpdated', new Date().toISOString());
+        }
+
+        // Get default migration data
+        function getDefaultData() {
+            return {
+                'sso-cutover': {
+                    title: 'SSO Cutover',
+                    description: 'Making applications like Workday use Microsoft instead of Google. Switching single sign-on provider for all integrated applications including Workday, learning management systems, and third-party tools.',
+                    status: 'in-progress',
+                    statusText: 'June 27, 2025 at 7:00 PM AZ Time',
+                    subItems: {
+                        'zendesk': {
+                            title: 'Zendesk Support Platform',
+                            description: 'Customer support ticket system migration',
+                            progress: 100,
+                            status: 'completed'
+                        },
+                        'blackline': {
+                            title: 'Blackline Financial System',
+                            description: 'Financial reconciliation platform',
+                            progress: 100,
+                            status: 'completed'
+                        },
+                        'quantum': {
+                            title: 'Quantum Analytics',
+                            description: 'Data analytics and reporting platform',
+                            progress: 100,
+                            status: 'completed'
+                        },
+                        'workday': {
+                            title: 'Workday HR Platform',
+                            description: 'Human resources management system',
+                            progress: 100,
+                            status: 'completed'
+                        },
+                        'tableau': {
+                            title: 'Tableau Business Intelligence',
+                            description: 'Data visualization and analytics tool',
+                            progress: 100,
+                            status: 'completed'
+                        },
+                        'chatgpt': {
+                            title: 'ChatGPT Integration',
+                            description: 'AI-powered assistant integration',
+                            progress: 25,
+                            status: 'in-progress'
+                        },
+                        'asana': {
+                            title: 'Asana Project Management',
+                            description: 'Team collaboration and project tracking',
+                            progress: 0,
+                            status: 'not-started'
+                        },
+                        'nectar': {
+                            title: 'Nectar Employee Recognition',
+                            description: 'Employee rewards and recognition platform',
+                            progress: 0,
+                            status: 'not-started'
+                        }
+                    }
+                }
+            };
+        }
+
+        // Calculate overall progress for a section
+        function calculateOverallProgress(subItems) {
+            if (!subItems || Object.keys(subItems).length === 0) return 0;
+            const items = Object.values(subItems);
+            const totalProgress = items.reduce((sum, item) => sum + item.progress, 0);
+            return Math.round(totalProgress / items.length);
+        }
+
+        // Handle status change in modal - auto-set progress to 100% when completed
+        function handleStatusChange() {
+            const statusSelect = document.getElementById('subItemStatus');
+            const progressInput = document.getElementById('subItemProgress');
+            
+            if (statusSelect.value === 'completed') {
+                progressInput.value = 100;
+            } else if (statusSelect.value === 'not-started') {
+                progressInput.value = 0;
+            }
+        }
+
+        // Quick complete function
+        function quickComplete(sectionId, subItemId) {
+            if (!isAdminMode) return;
+            
+            if (migrationData[sectionId] && migrationData[sectionId].subItems && migrationData[sectionId].subItems[subItemId]) {
+                migrationData[sectionId].subItems[subItemId].progress = 100;
+                migrationData[sectionId].subItems[subItemId].status = 'completed';
+                saveData();
+                renderContent();
+                updateLastModified();
+                showNotification('Task marked as complete!', 'success');
+            }
+        }
+
+        // Render migration content
+        function renderContent() {
+            const container = document.getElementById('migration-content');
+            container.innerHTML = '';
+
+            Object.keys(migrationData).forEach(id => {
+                const item = migrationData[id];
+                const overallProgress = calculateOverallProgress(item.subItems);
+                
+                const div = document.createElement('div');
+                div.className = 'migration-item';
+                div.setAttribute('data-id', id);
+                div.setAttribute('draggable', isAdminMode ? 'true' : 'false');
+                
+                div.innerHTML = `
+                    <div class="migration-header">
+                        <h2>${item.title}</h2>
+                        <div class="description">${item.description}</div>
+                        ${isAdminMode ? '<div style="position: absolute; top: 10px; left: 10px; color: rgba(255,255,255,0.7); font-size: 12px;">Click Edit or drag to reorder</div>' : ''}
+                    </div>
+                    
+                    <div class="migration-body">
+                        <div class="status-section">
+                            <div class="status-badge ${item.status}">
+                                ${getStatusLabel(item.status)}${item.statusText ? ' - ' + item.statusText : ''}
+                            </div>
+                        </div>
+                        
+                        <div class="overall-progress">
+                            <div class="progress-label">
+                                <span>Overall Progress</span>
+                                <span class="progress-percentage">${overallProgress}%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${overallProgress}%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="sub-items">
+                            <div class="sub-items-header">
+                                <div class="sub-items-title">Migration Components</div>
+                                ${isAdminMode ? `<button class="add-sub-item" onclick="addSubItem('${id}')">Add Item</button>` : ''}
+                            </div>
+                            ${renderSubItems(id, item.subItems)}
+                        </div>
+                    </div>
+                `;
+                
+                // Create and add the edit button separately to ensure proper event binding
+                if (isAdminMode) {
+                    const editButton = document.createElement('button');
+                    editButton.className = 'edit-button';
+                    editButton.textContent = 'Edit';
+                    editButton.title = 'Edit this section';
+                    editButton.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        editSection(id);
+                    });
+                    div.appendChild(editButton);
+                }
+                
+                container.appendChild(div);
+
+                // Add drag and drop event listeners if in admin mode
+                if (isAdminMode) {
+                    div.addEventListener('dragstart', handleDragStart);
+                    div.addEventListener('dragover', handleDragOver);
+                    div.addEventListener('drop', handleDrop);
+                    div.addEventListener('dragend', handleDragEnd);
+                }
+
+                // Animate progress bars after rendering
+                setTimeout(() => {
+                    const progressFills = div.querySelectorAll('.progress-fill, .sub-progress-fill');
+                    progressFills.forEach(fill => {
+                        const width = fill.style.width;
+                        fill.style.width = '0%';
+                        setTimeout(() => {
+                            fill.style.width = width;
+                        }, 100);
+                    });
+                }, 100);
+            });
+        }
+
+        // Drag and drop functionality
+        let draggedElement = null;
+
+        function handleDragStart(e) {
+            if (!isAdminMode) return;
+            draggedElement = e.target;
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', e.target.getAttribute('data-id'));
+        }
+
+        function handleDragOver(e) {
+            if (!isAdminMode) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const target = e.target.closest('.migration-item');
+            if (target && target !== draggedElement) {
+                target.classList.add('drag-over');
+            }
+        }
+
+        function handleDrop(e) {
+            if (!isAdminMode) return;
+            e.preventDefault();
+            const target = e.target.closest('.migration-item');
+            
+            if (target && target !== draggedElement) {
+                const draggedId = draggedElement.getAttribute('data-id');
+                const targetId = target.getAttribute('data-id');
+                
+                // Reorder the data
+                reorderSections(draggedId, targetId);
+            }
+            
+            // Clean up classes
+            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        }
+
+        function handleDragEnd(e) {
+            if (!isAdminMode) return;
+            e.target.classList.remove('dragging');
+            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+            draggedElement = null;
+        }
+
+        function reorderSections(draggedId, targetId) {
+            const keys = Object.keys(migrationData);
+            const draggedIndex = keys.indexOf(draggedId);
+            const targetIndex = keys.indexOf(targetId);
+            
+            if (draggedIndex === -1 || targetIndex === -1) return;
+            
+            // Create new ordered object
+            const newData = {};
+            const draggedData = migrationData[draggedId];
+            
+            keys.forEach((key, index) => {
+                if (key === draggedId) return; // Skip dragged item for now
+                
+                if (index === targetIndex) {
+                    // Insert dragged item before target
+                    newData[draggedId] = draggedData;
+                    newData[key] = migrationData[key];
+                } else {
+                    newData[key] = migrationData[key];
+                }
+            });
+            
+            // If target was the last item and we're dragging after it
+            if (targetIndex === keys.length - 1 && !newData[draggedId]) {
+                newData[draggedId] = draggedData;
+            }
+            
+            migrationData = newData;
+            saveData();
+            renderContent();
+            updateLastModified();
+            showNotification('Sections reordered', 'success');
+        }
+
+        // Render sub-items
+        function renderSubItems(sectionId, subItems) {
+            if (!subItems || Object.keys(subItems).length === 0) {
+                return '<div style="text-align: center; color: #707372; padding: 20px;">No components added yet</div>';
+            }
+
+            return Object.keys(subItems).map(subId => {
+                const subItem = subItems[subId];
+                return `
+                    <div class="sub-item">
+                        <div class="sub-item-header">
+                            <div class="sub-item-title" onclick="${isAdminMode ? `editSubItem('${sectionId}', '${subId}')` : ''}">${subItem.title}</div>
+                            ${isAdminMode ? `
+                                <div class="sub-item-actions">
+                                    <button class="sub-item-btn" onclick="editSubItem('${sectionId}', '${subId}')">Edit</button>
+                                    <button class="sub-item-btn" onclick="confirmDeleteSubItem('${sectionId}', '${subId}')">Delete</button>
+                                </div>
+                            ` : ''}
+                        </div>
+                        ${subItem.description ? `<div class="sub-item-description">${subItem.description}</div>` : ''}
+                        <div class="sub-progress-bar">
+                            <div class="sub-progress-fill" style="width: ${subItem.progress}%"></div>
+                        </div>
+                        <div class="sub-item-status">
+                            <span>${subItem.progress}% - ${getSubItemStatusLabel(subItem.status)}</span>
+                            ${isAdminMode && subItem.status !== 'completed' ? `
+                                <button class="status-complete-btn" onclick="quickComplete('${sectionId}', '${subId}')">Mark Complete</button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Get status label
+        function getStatusLabel(status) {
+            switch(status) {
+                case 'completed': return 'Completed';
+                case 'in-progress': return 'In Progress';
+                case 'pending': return 'Pending';
+                default: return 'Unknown';
+            }
+        }
+
+        // Get sub-item status label
+        function getSubItemStatusLabel(status) {
+            switch(status) {
+                case 'completed': return 'Completed';
+                case 'in-progress': return 'In Progress';
+                case 'not-started': return 'Not Started';
+                case 'blocked': return 'Blocked';
+                default: return 'Unknown';
+            }
+        }
+
+        // Show password modal
+        function showPasswordModal() {
+            document.getElementById('passwordModal').style.display = 'block';
+        }
+
+        // Close modal
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+            if (modalId === 'passwordModal') {
+                document.getElementById('adminPassword').value = '';
+            }
+        }
+
+        // Check password
+        function checkPassword() {
+            const password = document.getElementById('adminPassword').value;
+            if (password === ADMIN_PASSWORD) {
+                isAdminMode = true;
+                closeModal('passwordModal');
+                document.getElementById('adminPanel').classList.add('active');
+                renderContent(); // Re-render to show edit buttons
+                showNotification('Admin mode activated', 'success');
+            } else {
+                showNotification('Incorrect password', 'error');
+            }
+        }
+
+        function editSection(id) {
+            if (!isAdminMode) return;
+            
+            currentEditingId = id;
+            const item = migrationData[id];
+            
+            if (!item) return;
+            
+            document.getElementById('sectionTitle').value = item.title || '';
+            document.getElementById('sectionDescription').value = item.description || '';
+            document.getElementById('sectionStatus').value = item.status || 'pending';
+            document.getElementById('statusText').value = item.statusText || '';
+            
+            updateSubItemsList();
+            document.getElementById('editModal').style.display = 'block';
+        }
+
+        function updateSubItemsList() {
+            const container = document.getElementById('subItemsContainer');
+            if (!container) return;
+            
+            const subItems = migrationData[currentEditingId]?.subItems || {};
+            const subItemKeys = Object.keys(subItems);
+            
+            if (subItemKeys.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: var(--vertex-gray); padding: 20px;">No sub-items yet</div>';
+                return;
+            }
+            
+            container.innerHTML = subItemKeys.map((subId, index) => {
+                const subItem = subItems[subId];
+                return `
+                    <div class="sub-items-list-item" data-sub-id="${subId}">
+                        <div class="sub-item-info">
+                            <strong>${subItem.title}</strong><br>
+                            <small style="color: var(--vertex-gray);">${subItem.progress}% - ${getSubItemStatusLabel(subItem.status)}</small>
+                        </div>
+                        <div class="sub-item-controls">
+                            <button class="reorder-btn" onclick="moveSubItem('${subId}', -1)" ${index === 0 ? 'disabled' : ''}>↑</button>
+                            <button class="reorder-btn" onclick="moveSubItem('${subId}', 1)" ${index === subItemKeys.length - 1 ? 'disabled' : ''}>↓</button>
+                            <button class="sub-item-btn" onclick="editSubItemInModal('${subId}')">Edit</button>
+                            <button class="sub-item-btn" onclick="deleteSubItemFromModal('${subId}')">Delete</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function addNewSection() {
+            if (!isAdminMode) return;
+            
+            const id = 'section-' + Date.now();
+            currentEditingId = id;
+            
+            document.getElementById('sectionTitle').value = '';
+            document.getElementById('sectionDescription').value = '';
+            document.getElementById('sectionStatus').value = 'pending';
+            document.getElementById('statusText').value = '';
+            
+            document.getElementById('editModal').style.display = 'block';
+        }
+
+        function saveSection() {
+            const title = document.getElementById('sectionTitle').value.trim();
+            const description = document.getElementById('sectionDescription').value.trim();
+            const status = document.getElementById('sectionStatus').value;
+            const statusText = document.getElementById('statusText').value.trim();
+            
+            if (!title || !description) {
+                showNotification('Title and description are required', 'error');
+                return;
+            }
+            
+            if (!currentEditingId) {
+                currentEditingId = 'section-' + Date.now();
+            }
+            
+            const existingSubItems = migrationData[currentEditingId]?.subItems || {};
+            
+            migrationData[currentEditingId] = {
+                title,
+                description,
+                status,
+                statusText,
+                subItems: existingSubItems
+            };
+            
+            saveData();
+            renderContent();
+            updateLastModified();
+            closeModal('editModal');
+            showNotification('Section saved successfully', 'success');
+            currentEditingId = null;
+        }
+
+        function deleteSection() {
+            if (!currentEditingId) return;
+            
+            const sectionTitle = migrationData[currentEditingId]?.title || 'this section';
+            
+            if (confirm(`Are you sure you want to delete "${sectionTitle}"?`)) {
+                delete migrationData[currentEditingId];
+                saveData();
+                renderContent();
+                updateLastModified();
+                closeModal('editModal');
+                showNotification('Section deleted successfully', 'success');
+                currentEditingId = null;
+            }
+        }
+
+        // Sub-item functions
+        function addSubItem(sectionId) {
+            if (!isAdminMode) return;
+            
+            currentEditingId = sectionId;
+            currentSubItemId = 'subitem-' + Date.now();
+            
+            document.getElementById('subItemTitle').value = '';
+            document.getElementById('subItemDescription').value = '';
+            document.getElementById('subItemProgress').value = '0';
+            document.getElementById('subItemStatus').value = 'not-started';
+            
+            document.getElementById('subItemModal').style.display = 'block';
+        }
+
+        function editSubItem(sectionId, subItemId) {
+            if (!isAdminMode) return;
+            
+            currentEditingId = sectionId;
+            currentSubItemId = subItemId;
+            const subItem = migrationData[sectionId].subItems[subItemId];
+            
+            document.getElementById('subItemTitle').value = subItem.title;
+            document.getElementById('subItemDescription').value = subItem.description || '';
+            document.getElementById('subItemProgress').value = subItem.progress;
+            document.getElementById('subItemStatus').value = subItem.status;
+            
+            document.getElementById('subItemModal').style.display = 'block';
+        }
+
+        function saveSubItem() {
+            if (!currentEditingId || !currentSubItemId) return;
+            
+            const title = document.getElementById('subItemTitle').value.trim();
+            const description = document.getElementById('subItemDescription').value.trim();
+            const progress = parseInt(document.getElementById('subItemProgress').value);
+            const status = document.getElementById('subItemStatus').value;
+            
+            if (!title) {
+                showNotification('Title is required', 'error');
+                return;
+            }
+            
+            if (!migrationData[currentEditingId].subItems) {
+                migrationData[currentEditingId].subItems = {};
+            }
+            
+            migrationData[currentEditingId].subItems[currentSubItemId] = {
+                title,
+                description,
+                progress: Math.max(0, Math.min(100, progress)),
+                status
+            };
+            
+            saveData();
+            renderContent();
+            updateLastModified();
+            
+            // Update the sub-items list in the edit modal if it's open
+            if (document.getElementById('editModal').style.display === 'block') {
+                updateSubItemsList();
+            }
+            
+            closeModal('subItemModal');
+            showNotification('Sub-item saved successfully', 'success');
+            currentEditingId = null;
+            currentSubItemId = null;
+        }
+
+        function deleteSubItem() {
+            if (!isAdminMode || !currentEditingId || !currentSubItemId) return;
+            
+            if (confirm('Are you sure you want to delete this sub-item?')) {
+                delete migrationData[currentEditingId].subItems[currentSubItemId];
+                saveData();
+                renderContent();
+                updateLastModified();
+                closeModal('subItemModal');
+                showNotification('Sub-item deleted successfully', 'success');
+                currentEditingId = null;
+                currentSubItemId = null;
+            }
+        }
+
+        function confirmDeleteSubItem(sectionId, subItemId) {
+            if (!isAdminMode) return;
+            
+            if (confirm('Are you sure you want to delete this sub-item?')) {
+                delete migrationData[sectionId].subItems[subItemId];
+                saveData();
+                renderContent();
+                updateLastModified();
+                showNotification('Sub-item deleted successfully', 'success');
+            }
+        }
+
+        // Additional modal management functions
+        function addSubItemFromModal() {
+            // Don't reset currentEditingId - keep the current section being edited
+            currentSubItemId = 'subitem-' + Date.now();
+            
+            document.getElementById('subItemTitle').value = '';
+            document.getElementById('subItemDescription').value = '';
+            document.getElementById('subItemProgress').value = '0';
+            document.getElementById('subItemStatus').value = 'not-started';
+            
+            document.getElementById('subItemModal').style.display = 'block';
+        }
+
+        function moveSubItem(subItemId, direction) {
+            const subItems = migrationData[currentEditingId].subItems;
+            const keys = Object.keys(subItems);
+            const currentIndex = keys.indexOf(subItemId);
+            const newIndex = currentIndex + direction;
+            
+            if (newIndex < 0 || newIndex >= keys.length) return;
+            
+            const newSubItems = {};
+            const reorderedKeys = [...keys];
+            
+            [reorderedKeys[currentIndex], reorderedKeys[newIndex]] = [reorderedKeys[newIndex], reorderedKeys[currentIndex]];
+            
+            reorderedKeys.forEach(key => {
+                newSubItems[key] = subItems[key];
+            });
+            
+            migrationData[currentEditingId].subItems = newSubItems;
+            updateSubItemsList();
+            showNotification('Sub-item reordered', 'success');
+        }
+
+        function editSubItemInModal(subItemId) {
+            currentSubItemId = subItemId;
+            const subItem = migrationData[currentEditingId].subItems[subItemId];
+            
+            document.getElementById('subItemTitle').value = subItem.title;
+            document.getElementById('subItemDescription').value = subItem.description || '';
+            document.getElementById('subItemProgress').value = subItem.progress;
+            document.getElementById('subItemStatus').value = subItem.status;
+            
+            document.getElementById('subItemModal').style.display = 'block';
+        }
+
+        function deleteSubItemFromModal(subItemId) {
+            if (confirm('Are you sure you want to delete this sub-item?')) {
+                delete migrationData[currentEditingId].subItems[subItemId];
+                updateSubItemsList();
+                showNotification('Sub-item deleted', 'success');
+            }
+        }
+
+        // Show notification
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: ${type === 'success' ? 'var(--tertiary-green)' : type === 'error' ? 'var(--danger-red)' : 'var(--vertex-blue)'};
+                color: white;
+                padding: 15px 20px;
+                border-radius: 8px;
+                z-index: 3000;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+                animation: slideIn 0.3s ease-out;
+                font-weight: 500;
+            `;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease-in forwards';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        // Update last modified time
+        function updateLastModified() {
+            const lastUpdated = localStorage.getItem('lastUpdated');
+            if (lastUpdated) {
+                const date = new Date(lastUpdated);
+                document.getElementById('last-update-time').textContent = date.toLocaleString();
+            } else {
+                document.getElementById('last-update-time').textContent = new Date().toLocaleString();
+            }
+        }
+
+        // Event listeners
+        window.addEventListener('click', function(event) {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (event.target === modal) {
+                    closeModal(modal.id);
+                }
+            });
+        });
+
+        document.addEventListener('keypress', function(event) {
+            if (event.target.id === 'adminPassword' && event.key === 'Enter') {
+                checkPassword();
+            }
+        });
+
+        // Console helper functions
+        console.log('Migration Tracker with GitHub Integration Active');
+        console.log('- Data automatically syncs with GitHub repository');
+        console.log('- GitHub Config:', GITHUB_CONFIG);
+    </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microsoft 365 Migration Status - Vertex Education</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- GitHub Repository Configuration -->
+    <script>
+        const GITHUB_CONFIG = {
+            OWNER: 'vertex-education',
+            REPO: 'migration-tracker', 
+            FILE_PATH: 'migration-data.json',
+            BRANCH: 'main',
+            \1\2
+        };
+    </script>
+    
+    <style>
+        :root {
+            /* Vertex Brand Colors from Brand Guide */
+            --vertex-blue: #003865;
+            --vertex-gray: #707372;
+            --vertex-gold: #CBA052;
+            --dark-gray: #404342;
+            --light-gray: #C0C3C2;
+            --tertiary-green: #2DA44A;
+            --white: #FFFFFF;
+            
+            /* Status Colors */
+            --success-green: #2DA44A;
+            --warning-orange: #fd7e14;
+            --danger-red: #dc3545;
+            --info-blue: #17a2b8;
+            
+            /* Additional UI Colors */
+            --light-bg: #f8f9fa;
+            --border-color: #dee2e6;
+            --shadow-light: rgba(0, 0, 0, 0.08);
+            --shadow-medium: rgba(0, 0, 0, 0.15);
+            --shadow-heavy: rgba(0, 0, 0, 0.25);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            line-height: 1.6;
+            background: linear-gradient(135deg, var(--light-bg) 0%, #e9ecef 100%);
+            min-height: 100vh;
+            color: var(--dark-gray);
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--vertex-blue) 0%, #004a7a 100%);
+            color: var(--white);
+            padding: 20px 0;
+            box-shadow: 0 2px 10px var(--shadow-medium);
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            font-family: 'Red Hat Display', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .logo img {
+            height: 35px;
+            width: auto;
+        }
+
+        .header-title {
+            font-family: 'Red Hat Display', sans-serif;
+            font-weight: 600;
+            color: var(--vertex-gold);
+            font-size: clamp(16px, 3vw, 20px);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+
+        .page-title {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .page-title h1 {
+            font-family: 'Red Hat Display', sans-serif;
+            color: var(--vertex-blue);
+            font-size: clamp(2rem, 4vw, 2.5rem);
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .page-title .subtitle {
+            color: var(--vertex-gray);
+            font-size: 1.2rem;
+            font-weight: 400;
+        }
+
+        .migration-item {
+            background: var(--white);
+            margin-bottom: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px var(--shadow-light);
+            overflow: hidden;
+            border: 2px solid var(--border-color);
+            position: relative;
+            transition: all 0.3s ease;
+            cursor: grab;
+        }
+
+        .migration-item:active {
+            cursor: grabbing;
+        }
+
+        .migration-item.dragging {
+            opacity: 0.5;
+            transform: rotate(5deg);
+        }
+
+        .migration-item.drag-over {
+            border-color: var(--vertex-gold);
+            transform: translateY(-5px);
+        }
+
+        .migration-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px var(--shadow-medium);
+        }
+
+        .migration-header {
+            background: linear-gradient(135deg, var(--vertex-blue) 0%, #004a7a 100%);
+            color: var(--white);
+            padding: 20px 25px;
+            position: relative;
+        }
+
+        .migration-header h2 {
+            font-family: 'Red Hat Display', sans-serif;
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .migration-header .description {
+            opacity: 0.95;
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+
+        .edit-button {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.15);
+            color: var(--white);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            opacity: 0;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        .migration-item:hover .edit-button {
+            opacity: 1;
+        }
+
+        .edit-button:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: scale(1.05);
+        }
+
+        .migration-body {
+            padding: 25px;
+        }
+
+        .status-section {
+            margin-bottom: 25px;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-badge.completed {
+            background: rgba(45, 164, 74, 0.1);
+            color: var(--tertiary-green);
+            border: 2px solid var(--tertiary-green);
+        }
+
+        .status-badge.in-progress {
+            background: rgba(203, 160, 82, 0.1);
+            color: var(--vertex-gold);
+            border: 2px solid var(--vertex-gold);
+        }
+
+        .status-badge.pending {
+            background: rgba(112, 115, 114, 0.1);
+            color: var(--vertex-gray);
+            border: 2px solid var(--vertex-gray);
+        }
+
+        .overall-progress {
+            margin-bottom: 25px;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--vertex-blue);
+        }
+
+        .progress-bar {
+            background: #e9ecef;
+            border-radius: 10px;
+            height: 14px;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--vertex-gold) 0%, #d4a862 100%);
+            border-radius: 10px;
+            transition: width 2s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        .sub-items {
+            margin-top: 20px;
+        }
+
+        .sub-items-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .sub-items-title {
+            font-family: 'Red Hat Display', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--vertex-blue);
+        }
+
+        .add-sub-item {
+            background: var(--vertex-gold);
+            color: var(--white);
+            border: none;
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        .migration-item:hover .add-sub-item {
+            opacity: 1;
+        }
+
+        .add-sub-item:hover {
+            background: #b8935a;
+            transform: scale(1.05);
+        }
+
+        .sub-item {
+            background: var(--light-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 12px;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .sub-item:hover {
+            background: var(--white);
+            border-color: var(--vertex-blue);
+        }
+
+        .sub-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .sub-item-title {
+            font-weight: 600;
+            color: var(--dark-gray);
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        .sub-item-title:hover {
+            color: var(--vertex-blue);
+        }
+
+        .sub-item-actions {
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .sub-item:hover .sub-item-actions {
+            opacity: 1;
+        }
+
+        .sub-item-btn {
+            background: none;
+            border: 1px solid var(--border-color);
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            margin-left: 5px;
+            transition: all 0.2s ease;
+            color: var(--vertex-gray);
+        }
+
+        .sub-item-btn:hover {
+            background: var(--vertex-blue);
+            color: var(--white);
+            border-color: var(--vertex-blue);
+        }
+
+        .sub-progress-bar {
+            background: #e9ecef;
+            border-radius: 8px;
+            height: 8px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .sub-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--tertiary-green) 0%, #25a043 100%);
+            border-radius: 8px;
+            transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        .sub-progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            animation: shimmer 1.5s infinite;
+        }
+
+        .sub-item-status {
+            font-size: 12px;
+            color: var(--vertex-gray);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-complete-btn {
+            background: var(--tertiary-green);
+            color: var(--white);
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            cursor: pointer;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        .sub-item:hover .status-complete-btn {
+            opacity: 1;
+        }
+
+        .report-button {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: var(--danger-red);
+            color: var(--white);
+            border: none;
+            padding: 15px 20px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            box-shadow: 0 4px 20px rgba(220,53,69,0.3);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .report-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(220,53,69,0.4);
+            background: #c82333;
+        }
+
+        .sub-item-description {
+            font-size: 13px;
+            color: var(--vertex-gray);
+            margin-top: 8px;
+            line-height: 1.4;
+            font-style: italic;
+        }
+
+        .admin-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, var(--vertex-blue) 0%, #004a7a 100%);
+            color: var(--white);
+            border: none;
+            padding: 15px 20px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            box-shadow: 0 4px 20px rgba(0,56,101,0.3);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .admin-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0,56,101,0.4);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background: var(--white);
+            margin: 3% auto;
+            padding: 0;
+            border: none;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow: hidden;
+            box-shadow: 0 20px 60px var(--shadow-heavy);
+            animation: modalSlide 0.3s ease-out;
+        }
+
+        @keyframes modalSlide {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, var(--vertex-blue) 0%, #004a7a 100%);
+            color: var(--white);
+            padding: 20px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-family: 'Red Hat Display', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .close {
+            color: rgba(255,255,255,0.8);
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            line-height: 1;
+        }
+
+        .close:hover {
+            color: var(--white);
+            transform: scale(1.1);
+        }
+
+        .modal-body {
+            padding: 25px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .modal-body .btn {
+            position: static !important;
+            top: auto !important;
+            right: auto !important;
+            float: none !important;
+            margin: 5px 10px 5px 0;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--vertex-blue);
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+            font-family: 'DM Sans', sans-serif;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--vertex-blue);
+            box-shadow: 0 0 0 3px rgba(0,56,101,0.1);
+        }
+
+        .form-group textarea {
+            height: 80px;
+            resize: vertical;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .btn {
+            background: var(--vertex-blue);
+            color: var(--white);
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 5px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-block;
+            position: relative;
+            vertical-align: top;
+        }
+
+        .modal .btn {
+            position: static !important;
+            float: none !important;
+            top: auto !important;
+            right: auto !important;
+            bottom: auto !important;
+            left: auto !important;
+        }
+
+        form .btn,
+        #subItemForm .btn,
+        #editForm .btn {
+            position: static !important;
+            display: inline-block !important;
+            float: none !important;
+            margin: 5px 10px 5px 0 !important;
+        }
+
+        /* Ensure form buttons stay in their container */
+        .modal-body form {
+            position: relative;
+        }
+
+        .modal-body button[type="button"] {
+            position: static !important;
+        }
+
+        /* Fix for buttons appearing at top of page */
+        body > .btn:not(.admin-button):not(.report-button):not(.add-section-btn) {
+            display: none !important;
+        }
+
+        /* Ensure modal buttons are visible and properly positioned */
+        .modal .btn,
+        .modal-body .btn,
+        #subItemModal .btn,
+        #editModal .btn {
+            display: inline-block !important;
+            position: static !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+
+        /* Force visibility for sub-item modal buttons specifically */
+        #subItemModal form .btn,
+        #subItemModal .modal-body .btn,
+        #subItemModal button[type="button"] {
+            display: inline-block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            position: relative !important;
+            margin: 5px 10px 5px 0 !important;
+            background: var(--vertex-blue) !important;
+            color: white !important;
+            padding: 12px 20px !important;
+            border: none !important;
+            border-radius: 8px !important;
+            cursor: pointer !important;
+        }
+
+        .btn:hover {
+            background: #004a7a;
+            transform: translateY(-1px);
+        }
+
+        .btn-danger {
+            background: var(--danger-red);
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-success {
+            background: var(--tertiary-green);
+        }
+
+        .btn-success:hover {
+            background: #25a043;
+        }
+
+        .btn-secondary {
+            background: var(--vertex-gray);
+        }
+
+        .btn-secondary:hover {
+            background: var(--dark-gray);
+        }
+
+        .password-form {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .password-input {
+            padding: 15px 20px;
+            font-size: 16px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            margin-right: 10px;
+            width: 250px;
+            max-width: 100%;
+        }
+
+        .add-section-btn {
+            background: linear-gradient(135deg, var(--vertex-gold) 0%, #b8935a 100%);
+            color: var(--white);
+            padding: 15px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 30px;
+            font-size: 16px;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(203,160,82,0.3);
+            transition: all 0.3s ease;
+        }
+
+        .add-section-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(203,160,82,0.4);
+        }
+
+        .last-updated {
+            text-align: center;
+            color: var(--vertex-gray);
+            font-size: 14px;
+            margin-top: 40px;
+            padding: 20px;
+            background: var(--white);
+            border-radius: 8px;
+            box-shadow: 0 2px 8px var(--shadow-light);
+        }
+
+        .admin-panel {
+            display: none;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .admin-panel.active {
+            display: block;
+        }
+
+        .progress-percentage {
+            font-weight: 700;
+            color: var(--vertex-blue);
+        }
+
+        .quick-complete {
+            background: var(--tertiary-green);
+            color: var(--white);
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            cursor: pointer;
+            margin-left: 8px;
+        }
+
+        .quick-complete:hover {
+            background: #25a043;
+        }
+
+        .sub-items-list-item {
+            background: var(--light-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .sub-item-info {
+            flex: 1;
+        }
+        .sub-item-controls {
+            display: flex;
+            gap: 5px;
+        }
+        .reorder-btn {
+            background: var(--vertex-gold);
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 10px;
+        }
+        .reorder-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+
+            .page-title h1 {
+                font-size: 2rem;
+            }
+
+            .migration-header {
+                padding: 15px 20px;
+            }
+
+            .migration-body {
+                padding: 20px;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .password-input {
+                width: 100%;
+                margin-right: 0;
+                margin-bottom: 15px;
+            }
+
+            .admin-button {
+                padding: 12px 16px;
+                font-size: 14px;
+            }
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+<div id="version-banner" style="position:fixed;top:0;left:0;right:0;background:#111;color:#fff;padding:8px 12px;z-index:9999;font:14px/1.2 system-ui">Migration Tracker • DEBUG BUILD • v=6 • using Worker: https://broad-bar-39ce.cody-bell.workers.dev</div>
+
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <img src="https://brand.vertexeducation.com/assets/vertex_horizontal-white.png" alt="Vertex Education" />
+            </div>
+            <div class="header-title">Migration Control Center</div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="page-title">
+            <h1>Microsoft 365 Migration Status</h1>
+            <div class="subtitle">Real-time progress tracking</div>
+        </div>
+
+        <!-- Admin Panel -->
+        <div id="adminPanel" class="admin-panel">
+            <button class="add-section-btn" onclick="addNewSection()">Add New Migration Section</button>
+        </div>
+        
+        <div id="migration-content">
+            <!-- Migration items will be rendered here -->
+        </div>
+
+        <div class="last-updated">
+            <strong>Last Updated:</strong> <span id="last-update-time"></span>
+        </div>
+    </div>
+
+    <!-- Admin Button -->
+    <button class="admin-button" onclick="showPasswordModal()">Admin</button>
+    
+    <!-- Report Issue Button -->
+    <button class="report-button" onclick="window.open('https://form.asana.com/?k=MHfletS4m8vf5fLOYDPSyg&d=1202515054453280', '_blank');">Report Issue</button>
+
+    <!-- Password Modal -->
+    <div id="passwordModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Admin Access</div>
+                <span class="close" onclick="closeModal('passwordModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="password-form">
+                    <input type="password" id="adminPassword" class="password-input" placeholder="Enter admin password">
+                    <button class="btn" onclick="checkPassword()">Access Admin Panel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Section Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Edit Migration Section</div>
+                <span class="close" onclick="closeModal('editModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="editForm">
+                    <div class="form-group">
+                        <label for="sectionTitle">Section Title:</label>
+                        <input type="text" id="sectionTitle" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="sectionDescription">Description:</label>
+                        <textarea id="sectionDescription" required></textarea>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="sectionStatus">Status:</label>
+                            <select id="sectionStatus" required>
+                                <option value="completed">Completed</option>
+                                <option value="in-progress">In Progress</option>
+                                <option value="pending">Pending</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="statusText">Status Details:</label>
+                            <input type="text" id="statusText" placeholder="e.g., June 27, 2025">
+                        </div>
+                    </div>
+                    
+                    <h3 style="color: var(--vertex-blue); margin: 25px 0 15px 0; border-top: 2px solid var(--border-color); padding-top: 25px;">Manage Sub-Items</h3>
+                    <div class="sub-items-list" id="subItemsContainer">
+                        <!-- Sub-items will be populated here -->
+                    </div>
+                    <button type="button" class="btn" onclick="addSubItemFromModal()" style="background: var(--vertex-gold); margin-bottom: 20px;">Add New Sub-Item</button>
+                    
+                    <button type="button" class="btn btn-success" onclick="saveSection()">Save Changes</button>
+                    <button type="button" class="btn btn-danger" onclick="deleteSection()">Delete Section</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('editModal')">Cancel</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Sub-Item Modal -->
+    <div id="subItemModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Edit Sub-Item</div>
+                <span class="close" onclick="closeModal('subItemModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="subItemForm">
+                    <div class="form-group">
+                        <label for="subItemTitle">Sub-Item Title:</label>
+                        <input type="text" id="subItemTitle" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="subItemDescription">Description (optional):</label>
+                        <textarea id="subItemDescription" style="height: 60px;" placeholder="Add additional details about this component..."></textarea>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="subItemProgress">Progress (%):</label>
+                            <input type="number" id="subItemProgress" min="0" max="100" value="0" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="subItemStatus">Status:</label>
+                            <select id="subItemStatus" required onchange="handleStatusChange()">
+                                <option value="not-started">Not Started</option>
+                                <option value="in-progress">In Progress</option>
+                                <option value="completed">Completed</option>
+                                <option value="blocked">Blocked</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <button type="button" class="btn btn-success" onclick="saveSubItem()">
