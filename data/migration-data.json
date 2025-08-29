@@ -5,11 +5,6 @@
     "status": "in-progress",
     "statusText": "sdfhsdhsdh",
     "subItems": {
-      "blackline": {
-        "title": "Blackline Financial System",
-        "progress": 100,
-        "status": "completed"
-      },
       "quantum": {
         "title": "Quantum Analytics",
         "progress": 100,
