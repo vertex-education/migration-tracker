@@ -1,0 +1,52 @@
+{
+  "sso-cutover": {
+    "title": "SSO Cutover",
+    "description": "Making applications like Workday use Microsoft instead of Google. Switching single sign-on provider for all integrated applications including Workday, learning management systems, and third-party tools.",
+    "status": "in-progress",
+    "statusText": "sdfhsdhsdh",
+    "subItems": {
+      "blackline": {
+        "title": "Blackline Financial System",
+        "progress": 100,
+        "status": "completed"
+      },
+      "quantum": {
+        "title": "Quantum Analytics",
+        "progress": 100,
+        "status": "completed"
+      },
+      "workday": {
+        "title": "Workday HR Platform",
+        "progress": 100,
+        "status": "completed"
+      },
+      "tableau": {
+        "title": "Tableau Business Intelligence",
+        "progress": 100,
+        "status": "completed"
+      },
+      "chatgpt": {
+        "title": "ChatGPT Integration",
+        "progress": 25,
+        "status": "in-progress"
+      },
+      "asana": {
+        "title": "Asana Project Management",
+        "progress": 0,
+        "status": "not-started"
+      },
+      "nectar": {
+        "title": "Nectar Employee Recognition",
+        "progress": 0,
+        "status": "not-started"
+      }
+    }
+  },
+  "section-1756423101638": {
+    "title": "Test",
+    "description": "test",
+    "status": "pending",
+    "statusText": "",
+    "subItems": {}
+  }
+}
