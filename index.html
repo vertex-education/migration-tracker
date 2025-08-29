@@ -1,2029 +1,389 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Microsoft 365 Migration Status - Vertex Education</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-    
-    <!-- GitHub Pages Configuration -->
-    <script>
-        // GitHub Repository Configuration for persistence
-        const GITHUB_CONFIG = {
-            // Update these values for your GitHub repository
-            OWNER: 'your-username',           // Your GitHub username
-            REPO: 'migration-tracker',        // Your repository name
-            FILE_PATH: 'data/migration-data.json', // Path to data file in repo
-            BRANCH: 'main',                   // Branch name (usually 'main' or 'master')
-            TOKEN: '',                        // GitHub Personal Access Token (set in admin)
-            
-            // Alternative: Use GitHub Gist instead of repository
-            GIST_ID: '',                      // Optional: Use a GitHub Gist instead
-            GIST_FILENAME: 'migration-data.json',
-            
-            // Fallback options
-            USE_GITHUB: false,                // Set to true to enable GitHub persistence
-            USE_GIST: false                   // Set to true to use Gist instead of repo
-        };
-        
-        // Simple file-based persistence (no database needed)
-        const FILE_CONFIG = {
-            // For simple file-based hosting
-            DATA_FILE_URL: './migration-data.json',  // Relative path to data file
-            USE_FILE: true                           // Fallback to file-based system
-        };
-    </script>
-    
-    <style>
-        :root {
-            /* Vertex Brand Colors from Brand Guide */
-            --vertex-blue: #003865;
-            --vertex-gray: #707372;
-            --vertex-gold: #CBA052;
-            --dark-gray: #404342;
-            --light-gray: #C0C3C2;
-            --tertiary-green: #2DA44A;
-            --white: #FFFFFF;
-            
-            /* Status Colors */
-            --success-green: #2DA44A;
-            --warning-orange: #fd7e14;
-            --danger-red: #dc3545;
-            --info-blue: #17a2b8;
-            
-            /* Additional UI Colors */
-            --light-bg: #f8f9fa;
-            --border-color: #dee2e6;
-            --shadow-light: rgba(0, 0, 0, 0.08);
-            --shadow-medium: rgba(0, 0, 0, 0.15);
-            --shadow-heavy: rgba(0, 0, 0, 0.25);
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            line-height: 1.6;
-            background: linear-gradient(135deg, var(--light-bg) 0%, #e9ecef 100%);
-            min-height: 100vh;
-            color: var(--dark-gray);
-        }
-
-        .header {
-            background: linear-gradient(135deg, var(--vertex-blue) 0%, #004a7a 100%);
-            color: var(--white);
-            padding: 20px 0;
-            box-shadow: 0 2px 10px var(--shadow-medium);
-        }
-
-        .header-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            font-family: 'Red Hat Display', sans-serif;
-            font-size: 24px;
-            font-weight: 700;
-        }
-
-        .logo img {
-            height: 35px;
-            width: auto;
-        }
-
-        .header-title {
-            font-family: 'Red Hat Display', sans-serif;
-            font-weight: 600;
-            color: var(--vertex-gold);
-            font-size: clamp(16px, 3vw, 20px);
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 30px 20px;
-        }
-
-        .page-title {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-
-        .page-title h1 {
-            font-family: 'Red Hat Display', sans-serif;
-            color: var(--vertex-blue);
-            font-size: clamp(2rem, 4vw, 2.5rem);
-            margin-bottom: 10px;
-            font-weight: 700;
-        }
-
-        .page-title .subtitle {
-            color: var(--vertex-gray);
-            font-size: 1.2rem;
-            font-weight: 400;
-        }
-
-        .migration-item {
-            background: var(--white);
-            margin-bottom: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px var(--shadow-light);
-            overflow: hidden;
-            border: 2px solid var(--border-color);
-            position: relative;
-            transition: all 0.3s ease;
-            cursor: grab;
-        }
-
-        .migration-item:active {
-            cursor: grabbing;
-        }
-
-        .migration-item.dragging {
-            opacity: 0.5;
-            transform: rotate(5deg);
-        }
-
-        .migration-item.drag-over {
-            border-color: var(--vertex-gold);
-            transform: translateY(-5px);
-        }
-
-        .migration-item:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px var(--shadow-medium);
-        }
-
-        .migration-header {
-            background: linear-gradient(135deg, var(--vertex-blue) 0%, #004a7a 100%);
-            color: var(--white);
-            padding: 20px 25px;
-            position: relative;
-        }
-
-        .migration-header h2 {
-            font-family: 'Red Hat Display', sans-serif;
-            font-size: 1.8rem;
-            margin-bottom: 8px;
-            font-weight: 600;
-        }
-
-        .migration-header .description {
-            opacity: 0.95;
-            font-size: 1rem;
-            line-height: 1.5;
-        }
-
-        .edit-button {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            background: rgba(255, 255, 255, 0.15);
-            color: var(--white);
-            border: 1px solid rgba(255, 255, 255, 0.25);
-            padding: 6px 10px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 500;
-            opacity: 0;
-            transition: all 0.3s ease;
-            backdrop-filter: blur(5px);
-        }
-
-        .migration-item:hover .edit-button {
-            opacity: 1;
-        }
-
-        .edit-button:hover {
-            background: rgba(255, 255, 255, 0.25);
-            transform: scale(1.05);
-        }
-
-        .migration-body {
-            padding: 25px;
-        }
-
-        .status-section {
-            margin-bottom: 25px;
-        }
-
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-weight: 600;
-            font-size: 14px;
-            margin-bottom: 15px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .status-badge.completed {
-            background: rgba(45, 164, 74, 0.1);
-            color: var(--tertiary-green);
-            border: 2px solid var(--tertiary-green);
-        }
-
-        .status-badge.in-progress {
-            background: rgba(203, 160, 82, 0.1);
-            color: var(--vertex-gold);
-            border: 2px solid var(--vertex-gold);
-        }
-
-        .status-badge.pending {
-            background: rgba(112, 115, 114, 0.1);
-            color: var(--vertex-gray);
-            border: 2px solid var(--vertex-gray);
-        }
-
-        .overall-progress {
-            margin-bottom: 25px;
-        }
-
-        .progress-label {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: var(--vertex-blue);
-        }
-
-        .progress-bar {
-            background: #e9ecef;
-            border-radius: 10px;
-            height: 14px;
-            overflow: hidden;
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--vertex-gold) 0%, #d4a862 100%);
-            border-radius: 10px;
-            transition: width 2s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .progress-fill::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-            animation: shimmer 2s infinite;
-        }
-
-        @keyframes shimmer {
-            0% { left: -100%; }
-            100% { left: 100%; }
-        }
-
-        .sub-items {
-            margin-top: 20px;
-        }
-
-        .sub-items-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
-        .sub-items-title {
-            font-family: 'Red Hat Display', sans-serif;
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: var(--vertex-blue);
-        }
-
-        .add-sub-item {
-            background: var(--vertex-gold);
-            color: var(--white);
-            border: none;
-            padding: 8px 15px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 600;
-            opacity: 0;
-            transition: all 0.3s ease;
-        }
-
-        .migration-item:hover .add-sub-item {
-            opacity: 1;
-        }
-
-        .add-sub-item:hover {
-            background: #b8935a;
-            transform: scale(1.05);
-        }
-
-        .sub-item {
-            background: var(--light-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 12px;
-            position: relative;
-            transition: all 0.3s ease;
-        }
-
-        .sub-item:hover {
-            background: var(--white);
-            border-color: var(--vertex-blue);
-        }
-
-        .sub-item-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-
-        .sub-item-title {
-            font-weight: 600;
-            color: var(--dark-gray);
-            font-size: 1rem;
-            cursor: pointer;
-        }
-
-        .sub-item-title:hover {
-            color: var(--vertex-blue);
-        }
-
-        .sub-item-actions {
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .sub-item:hover .sub-item-actions {
-            opacity: 1;
-        }
-
-        .sub-item-btn {
-            background: none;
-            border: 1px solid var(--border-color);
-            padding: 4px 8px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 11px;
-            margin-left: 5px;
-            transition: all 0.2s ease;
-            color: var(--vertex-gray);
-        }
-
-        .sub-item-btn:hover {
-            background: var(--vertex-blue);
-            color: var(--white);
-            border-color: var(--vertex-blue);
-        }
-
-        .sub-progress-bar {
-            background: #e9ecef;
-            border-radius: 8px;
-            height: 8px;
-            overflow: hidden;
-            margin-bottom: 8px;
-        }
-
-        .sub-progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--tertiary-green) 0%, #25a043 100%);
-            border-radius: 8px;
-            transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-        }
-
-        .sub-progress-fill::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-            animation: shimmer 1.5s infinite;
-        }
-
-        .sub-item-status {
-            font-size: 12px;
-            color: var(--vertex-gray);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .status-complete-btn {
-            background: var(--tertiary-green);
-            color: var(--white);
-            border: none;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 10px;
-            cursor: pointer;
-            opacity: 0;
-            transition: all 0.3s ease;
-        }
-
-        .sub-item:hover .status-complete-btn {
-            opacity: 1;
-        }
-
-        .report-button {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            background: var(--danger-red);
-            color: var(--white);
-            border: none;
-            padding: 15px 20px;
-            border-radius: 50px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            box-shadow: 0 4px 20px rgba(220,53,69,0.3);
-            transition: all 0.3s ease;
-            z-index: 1000;
-        }
-
-        .report-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 30px rgba(220,53,69,0.4);
-            background: #c82333;
-        }
-
-        .sub-item-description {
-            font-size: 13px;
-            color: var(--vertex-gray);
-            margin-top: 8px;
-            line-height: 1.4;
-            font-style: italic;
-        }
-
-        .admin-button {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: linear-gradient(135deg, var(--vertex-blue) 0%, #004a7a 100%);
-            color: var(--white);
-            border: none;
-            padding: 15px 20px;
-            border-radius: 50px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            box-shadow: 0 4px 20px rgba(0,56,101,0.3);
-            transition: all 0.3s ease;
-            z-index: 1000;
-        }
-
-        .admin-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 30px rgba(0,56,101,0.4);
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 2000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-            backdrop-filter: blur(5px);
-        }
-
-        .modal-content {
-            background: var(--white);
-            margin: 3% auto;
-            padding: 0;
-            border: none;
-            border-radius: 12px;
-            width: 90%;
-            max-width: 600px;
-            max-height: 90vh;
-            overflow: hidden;
-            box-shadow: 0 20px 60px var(--shadow-heavy);
-            animation: modalSlide 0.3s ease-out;
-        }
-
-        @keyframes modalSlide {
-            from {
-                opacity: 0;
-                transform: translateY(-50px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .modal-header {
-            background: linear-gradient(135deg, var(--vertex-blue) 0%, #004a7a 100%);
-            color: var(--white);
-            padding: 20px 25px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .modal-title {
-            font-family: 'Red Hat Display', sans-serif;
-            font-size: 1.5rem;
-            font-weight: 600;
-        }
-
-        .close {
-            color: rgba(255,255,255,0.8);
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            line-height: 1;
-        }
-
-        .close:hover {
-            color: var(--white);
-            transform: scale(1.1);
-        }
-
-        .modal-body {
-            padding: 25px;
-            max-height: 70vh;
-            overflow-y: auto;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: var(--vertex-blue);
-        }
-
-        .form-group input,
-        .form-group textarea,
-        .form-group select {
-            width: 100%;
-            padding: 12px 15px;
-            border: 2px solid var(--border-color);
-            border-radius: 8px;
-            font-size: 14px;
-            transition: border-color 0.3s ease;
-            font-family: 'DM Sans', sans-serif;
-        }
-
-        .form-group input:focus,
-        .form-group textarea:focus,
-        .form-group select:focus {
-            outline: none;
-            border-color: var(--vertex-blue);
-            box-shadow: 0 0 0 3px rgba(0,56,101,0.1);
-        }
-
-        .form-group textarea {
-            height: 80px;
-            resize: vertical;
-        }
-
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-
-        .btn {
-            background: var(--vertex-blue);
-            color: var(--white);
-            padding: 12px 20px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            margin-right: 10px;
-            font-size: 14px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .btn:hover {
-            background: #004a7a;
-            transform: translateY(-1px);
-        }
-
-        .btn-danger {
-            background: var(--danger-red);
-        }
-
-        .btn-danger:hover {
-            background: #c82333;
-        }
-
-        .btn-success {
-            background: var(--tertiary-green);
-        }
-
-        .btn-success:hover {
-            background: #25a043;
-        }
-
-        .btn-secondary {
-            background: var(--vertex-gray);
-        }
-
-        .btn-secondary:hover {
-            background: var(--dark-gray);
-        }
-
-        .password-form {
-            text-align: center;
-            padding: 40px 20px;
-        }
-
-        .password-input {
-            padding: 15px 20px;
-            font-size: 16px;
-            border: 2px solid var(--border-color);
-            border-radius: 8px;
-            margin-right: 10px;
-            width: 250px;
-            max-width: 100%;
-        }
-
-        .add-section-btn {
-            background: linear-gradient(135deg, var(--vertex-gold) 0%, #b8935a 100%);
-            color: var(--white);
-            padding: 15px 25px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            margin-bottom: 30px;
-            font-size: 16px;
-            font-weight: 600;
-            box-shadow: 0 4px 15px rgba(203,160,82,0.3);
-            transition: all 0.3s ease;
-        }
-
-        .add-section-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(203,160,82,0.4);
-        }
-
-        .last-updated {
-            text-align: center;
-            color: var(--vertex-gray);
-            font-size: 14px;
-            margin-top: 40px;
-            padding: 20px;
-            background: var(--white);
-            border-radius: 8px;
-            box-shadow: 0 2px 8px var(--shadow-light);
-        }
-
-        .admin-panel {
-            display: none;
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        .admin-panel.active {
-            display: block;
-        }
-
-        .progress-percentage {
-            font-weight: 700;
-            color: var(--vertex-blue);
-        }
-
-        .quick-complete {
-            background: var(--tertiary-green);
-            color: var(--white);
-            border: none;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 10px;
-            cursor: pointer;
-            margin-left: 8px;
-        }
-
-        .quick-complete:hover {
-            background: #25a043;
-        }
-
-        @media (max-width: 768px) {
-            .header-content {
-                flex-direction: column;
-                gap: 10px;
-                text-align: center;
-            }
-
-            .page-title h1 {
-                font-size: 2rem;
-            }
-
-            .migration-header {
-                padding: 15px 20px;
-            }
-
-            .migration-body {
-                padding: 20px;
-            }
-
-            .form-row {
-                grid-template-columns: 1fr;
-            }
-
-            .password-input {
-                width: 100%;
-                margin-right: 0;
-                margin-bottom: 15px;
-            }
-
-            .admin-button {
-                padding: 12px 16px;
-                font-size: 14px;
-            }
-        }
-    </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Migration Tracker</title>
+  <meta name="description" content="Read-only dashboard that renders data/migration-data.json from the public repo vertex-education/migration-tracker." />
+  <style>
+    :root{
+      --bg:#0a0f16; --panel:#0f1622; --border:#1c2940; --text:#e6eef8; --muted:#9fb0c6;
+      --accent:#1b66ff; --accent-2:#22c55e; --danger:#ef4444; --warn:#f59e0b;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:var(--bg); color:var(--text)}
+    header{position:sticky; top:0; z-index:5; backdrop-filter:saturate(160%) blur(8px);
+      background:linear-gradient(180deg, rgba(10,15,22,.9), rgba(10,15,22,.6)); border-bottom:1px solid var(--border);
+      display:flex; align-items:center; justify-content:space-between; padding:12px 18px}
+    h1{font-size:18px; margin:0}
+    main{max-width:1100px; margin:0 auto; padding:18px}
+    .row{display:flex; flex-wrap:wrap; gap:12px}
+    .col{flex:1 1 260px}
+    .card{background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:14px; margin:10px 0}
+    .muted{color:var(--muted)}
+    .pill{display:inline-block; padding:4px 10px; border-radius:999px; border:1px solid var(--border); background:#0e1a2b; font-size:12px; margin-right:6px}
+    .btn{appearance:none; border:0; background:var(--accent); color:white; padding:10px 14px; border-radius:10px; cursor:pointer}
+    .btn.secondary{background:#1a2333}
+    .btn:disabled{opacity:.6; cursor:not-allowed}
+    input[type="text"], input[type="search"], select{width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--border); background:#0b121d; color:var(--text)}
+    .grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:12px}
+    .kv{display:grid; grid-template-columns: 160px 1fr; gap:6px; align-items:start}
+    .kv .k{color:var(--muted)}
+    .status{font-size:12px; font-weight:600; letter-spacing:.3px; text-transform:uppercase; padding:4px 8px; border-radius:999px; display:inline-block}
+    .status.ok{background:rgba(34,197,94,.15); border:1px solid rgba(34,197,94,.35)}
+    .status.warn{background:rgba(245,158,11,.12); border:1px solid rgba(245,158,11,.35)}
+    .status.err{background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.35)}
+    .progress{height:8px; background:#0b121d; border:1px solid var(--border); border-radius:999px; overflow:hidden}
+    .progress > span{display:block; height:100%; background:var(--accent-2); width:0%}
+    details summary{cursor:pointer; color:var(--muted)}
+    pre{white-space:pre-wrap; word-break:break-word}
+    a{color:#8ab4ff; text-decoration:none}
+    a:hover{text-decoration:underline}
+    .footer{padding:22px; text-align:center; color:var(--muted)}
+    .toolbar{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+  </style>
 </head>
 <body>
-    <header class="header">
-        <div class="header-content">
-            <div class="logo">
-                <img src="https://brand.vertexeducation.com/assets/vertex_horizontal-white.png" alt="Vertex Education" />
-            </div>
-            <div class="header-title">Migration Control Center</div>
-        </div>
-    </header>
-
-    <div class="container">
-        <div class="page-title">
-            <h1>Microsoft 365 Migration Status</h1>
-            <div class="subtitle">Real-time progress tracking</div>
-        </div>
-
-        <!-- Admin Panel -->
-        <div id="adminPanel" class="admin-panel">
-            <button class="add-section-btn" onclick="addNewSection()">Add New Migration Section</button>
-            <button class="add-section-btn" onclick="setupGitHubIntegration()" style="background: var(--vertex-gold); margin-left: 10px;">Setup GitHub Integration</button>
-        </div>
-        
-        <div id="migration-content">
-            <!-- Migration items will be rendered here -->
-        </div>
-
-        <div class="last-updated">
-            <strong>Last Updated:</strong> <span id="last-update-time"></span>
-        </div>
+  <header>
+    <h1 id="pageTitle">Migration Tracker</h1>
+    <div class="toolbar">
+      <span class="pill" id="branchPill">main</span>
+      <span class="pill" id="pathPill">data/migration-data.json</span>
+      <span class="pill" id="commitPill">—</span>
+      <button id="refreshBtn" class="btn secondary" title="Reload data">Refresh</button>
     </div>
+  </header>
 
-    <!-- Admin Button -->
-    <button class="admin-button" onclick="showPasswordModal()">Admin</button>
-    
-    <!-- Report Issue Button -->
-    <button class="report-button" onclick="window.open('https://form.asana.com/?k=MHfletS4m8vf5fLOYDPSyg&d=1202515054453280', '_blank');">Report Issue</button>
-
-    <!-- Password Modal -->
-    <div id="passwordModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="modal-title">Admin Access</div>
-                <span class="close" onclick="closeModal('passwordModal')">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="password-form">
-                    <input type="password" id="adminPassword" class="password-input" placeholder="Enter admin password">
-                    <button class="btn" onclick="checkPassword()">Access Admin Panel</button>
-                </div>
-            </div>
+  <main>
+    <section class="card">
+      <div class="row">
+        <div class="col">
+          <div class="muted">Last Updated</div>
+          <div id="lastUpdated">—</div>
         </div>
-    </div>
-
-    <!-- Edit Section Modal -->
-    <div id="editModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="modal-title">Edit Migration Section</div>
-                <span class="close" onclick="closeModal('editModal')">&times;</span>
-            </div>
-            <div class="modal-body">
-                <form id="editForm">
-                    <div class="form-group">
-                        <label for="sectionTitle">Section Title:</label>
-                        <input type="text" id="sectionTitle" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="sectionDescription">Description:</label>
-                        <textarea id="sectionDescription" required></textarea>
-                    </div>
-                    
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="sectionStatus">Status:</label>
-                            <select id="sectionStatus" required>
-                                <option value="completed">Completed</option>
-                                <option value="in-progress">In Progress</option>
-                                <option value="pending">Pending</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="statusText">Status Details:</label>
-                            <input type="text" id="statusText" placeholder="e.g., June 27, 2025">
-                        </div>
-                    </div>
-                    
-                    <h3 style="color: var(--vertex-blue); margin: 25px 0 15px 0; border-top: 2px solid var(--border-color); padding-top: 25px;">Manage Sub-Items</h3>
-                    <div class="sub-items-list" id="subItemsContainer">
-                        <!-- Sub-items will be populated here -->
-                    </div>
-                    <button type="button" class="btn" onclick="addSubItemFromModal()" style="background: var(--vertex-gold); margin-bottom: 20px;">Add New Sub-Item</button>
-                    
-                    <button type="button" class="btn btn-success" onclick="saveSection()">Save Changes</button>
-                    <button type="button" class="btn btn-danger" onclick="deleteSection()">Delete Section</button>
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('editModal')">Cancel</button>
-                </form>
-            </div>
+        <div class="col">
+          <div class="muted">Repository</div>
+          <div>
+            <a id="repoLink" href="https://github.com/vertex-education/migration-tracker" target="_blank" rel="noopener">vertex-education/migration-tracker</a>
+          </div>
         </div>
-    </div>
-
-    <!-- Edit Sub-Item Modal -->
-    <div id="subItemModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="modal-title">Edit Sub-Item</div>
-                <span class="close" onclick="closeModal('subItemModal')">&times;</span>
-            </div>
-            <div class="modal-body">
-                <form id="subItemForm">
-                    <div class="form-group">
-                        <label for="subItemTitle">Sub-Item Title:</label>
-                        <input type="text" id="subItemTitle" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="subItemDescription">Description (optional):</label>
-                        <textarea id="subItemDescription" style="height: 60px;" placeholder="Add additional details about this component..."></textarea>
-                    </div>
-                    
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="subItemProgress">Progress (%):</label>
-                            <input type="number" id="subItemProgress" min="0" max="100" value="0" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="subItemStatus">Status:</label>
-                            <select id="subItemStatus" required onchange="handleStatusChange()">
-                                <option value="not-started">Not Started</option>
-                                <option value="in-progress">In Progress</option>
-                                <option value="completed">Completed</option>
-                                <option value="blocked">Blocked</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <button type="button" class="btn btn-success" onclick="saveSubItem()">Save Sub-Item</button>
-                    <button type="button" class="btn btn-danger" onclick="deleteSubItem()">Delete</button>
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('subItemModal')">Cancel</button>
-                </form>
-            </div>
+        <div class="col">
+          <div class="muted">Search</div>
+          <input id="searchBox" type="search" placeholder="Filter cards (name, title, status, etc.)" />
         </div>
-    </div>
+        <div class="col">
+          <div class="muted">Auto-refresh</div>
+          <select id="autoRefresh">
+            <option value="0">Off</option>
+            <option value="30">Every 30s</option>
+            <option value="60">Every 1m</option>
+            <option value="300">Every 5m</option>
+          </select>
+        </div>
+      </div>
+    </section>
 
-    <script>
-        // Configuration
-        const ADMIN_PASSWORD = 'FuzzySalmon51';
-        let isAdminMode = false;
-        let currentEditingId = null;
-        let currentSubItemId = null;
-        let migrationData = {};
+    <section id="overview" class="card" style="display:none"></section>
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', function() {
-            loadData();
-            updateLastModified();
+    <section id="sections"></section>
+
+    <section id="errors" class="card" style="display:none">
+      <div id="errorText" class="muted"></div>
+    </section>
+
+    <section class="card">
+      <details>
+        <summary>View raw JSON</summary>
+        <pre id="raw"></pre>
+      </details>
+    </section>
+  </main>
+
+  <div class="footer">© Vertex Education</div>
+
+<script>
+(function(){
+  const OWNER = 'vertex-education';
+  const REPO = 'migration-tracker';
+  const BRANCH = 'main';
+  const PATH = 'data/migration-data.json';
+  const RAW_URL = `https://raw.githubusercontent.com/${OWNER}/${REPO}/${BRANCH}/${PATH}`;
+  const COMMITS_API = `https://api.github.com/repos/${OWNER}/${REPO}/commits?path=${encodeURIComponent(PATH)}&sha=${encodeURIComponent(BRANCH)}&per_page=1`;
+
+  // Elements
+  const lastUpdatedEl = document.getElementById('lastUpdated');
+  const commitPill = document.getElementById('commitPill');
+  const branchPill = document.getElementById('branchPill');
+  const pathPill = document.getElementById('pathPill');
+  const repoLink = document.getElementById('repoLink');
+  const rawEl = document.getElementById('raw');
+  const sectionsEl = document.getElementById('sections');
+  const overviewEl = document.getElementById('overview');
+  const errorBox = document.getElementById('errors');
+  const errorText = document.getElementById('errorText');
+  const refreshBtn = document.getElementById('refreshBtn');
+  const searchBox = document.getElementById('searchBox');
+  const pageTitle = document.getElementById('pageTitle');
+  const autoRefreshSel = document.getElementById('autoRefresh');
+
+  let dataCache = null; // last loaded JSON
+  let refreshTimer = null;
+
+  function escapeHTML(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
+  }
+  function fmtDate(d){
+    try{
+      const dt = (d instanceof Date) ? d : new Date(d);
+      if(isNaN(+dt)) return String(d);
+      return dt.toLocaleString(undefined, {year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+    }catch{ return String(d); }
+  }
+  function percentFrom(val){
+    if(val == null) return null;
+    let n = Number(val);
+    if(!isFinite(n)) return null;
+    if(n<=1) n = n*100;
+    n = Math.max(0, Math.min(100, n));
+    return Math.round(n);
+  }
+
+  async function fetchJSON(){
+    const url = RAW_URL + `?t=${Date.now()}`;
+    const res = await fetch(url, {cache:'no-store'});
+    if(!res.ok) throw new Error(`Failed to load JSON (${res.status})`);
+    return res.json();
+  }
+  async function fetchCommitMeta(){
+    try{
+      const res = await fetch(COMMITS_API, {cache:'no-store'});
+      if(!res.ok) return null;
+      const arr = await res.json();
+      if(!Array.isArray(arr) || arr.length === 0) return null;
+      const c = arr[0];
+      const sha = (c && c.sha) ? c.sha.substring(0,7) : '—';
+      const date = c && c.commit && c.commit.author && c.commit.author.date;
+      const htmlUrl = c && c.html_url;
+      return {sha, date, htmlUrl};
+    }catch{ return null; }
+  }
+
+  function clear(el){ while(el.firstChild) el.removeChild(el.firstChild); }
+
+  function renderOverview(obj){
+    const top = obj && typeof obj === 'object' ? obj : {};
+    const info = [];
+    const lu = top.lastUpdated || top.updated || top.last_update || top.timestamp;
+    const title = top.title || top.name || 'Migration Tracker';
+
+    // Title override
+    pageTitle.textContent = escapeHTML(title);
+
+    // Last updated preference: file field, else commit meta filled later
+    lastUpdatedEl.textContent = lu ? escapeHTML(fmtDate(lu)) : '—';
+
+    // Compute basic status counts if a conventional array exists
+    let statusCounts = {};
+    const arrays = Object.entries(top).filter(([k,v]) => Array.isArray(v));
+    arrays.forEach(([k, arr]) => {
+      arr.forEach(item => {
+        if(item && typeof item === 'object' && 'status' in item){
+          const s = String(item.status || '').toLowerCase();
+          if(!s) return;
+          statusCounts[s] = (statusCounts[s]||0)+1;
+        }
+      });
+    });
+
+    clear(overviewEl);
+    const wrap = document.createElement('div');
+    const kv = document.createElement('div'); kv.className = 'kv';
+
+    // Basic KVs
+    const kvPair = (k,v)=>{
+      const kEl = document.createElement('div'); kEl.className='k'; kEl.textContent=k;
+      const vEl = document.createElement('div'); vEl.innerHTML = escapeHTML(v);
+      kv.appendChild(kEl); kv.appendChild(vEl);
+    };
+
+    kvPair('Title', title);
+    kvPair('Data file', `${BRANCH}/${PATH}`);
+
+    if(Object.keys(statusCounts).length){
+      const chips = Object.entries(statusCounts).map(([s,n])=>`<span class="pill">${escapeHTML(s)}: ${n}</span>`).join(' ');
+      kvPair('Status counts', chips);
+    }
+
+    wrap.appendChild(kv);
+    overviewEl.appendChild(wrap);
+    overviewEl.style.display='';
+  }
+
+  function statusClass(s){
+    if(!s) return ''; const t = String(s).toLowerCase();
+    if(/^(ok|green|done|complete|success|healthy)$/.test(t)) return 'ok';
+    if(/^(warn|warning|yellow|at risk|blocked)$/.test(t)) return 'warn';
+    if(/^(err|error|red|failed|issue|critical)$/.test(t)) return 'err';
+    return '';
+  }
+
+  function guessLabel(obj){
+    const keys = ['name','title','id','key','project','task'];
+    for(const k of keys){ if(obj[k]) return obj[k]; }
+    return '';
+  }
+
+  function renderArraySection(name, arr){
+    const sec = document.createElement('section');
+    sec.className = 'card';
+
+    const h = document.createElement('h2'); h.textContent = name; h.style.marginTop='6px'; h.style.fontSize='16px'; h.style.marginBottom='12px';
+    sec.appendChild(h);
+
+    const grid = document.createElement('div'); grid.className='grid';
+
+    arr.forEach(item => {
+      const card = document.createElement('div'); card.className='card';
+      card.setAttribute('data-search', JSON.stringify(item).toLowerCase());
+
+      if(item && typeof item === 'object'){
+        const label = guessLabel(item) || '(item)';
+        const status = item.status != null ? String(item.status) : '';
+        const sClass = statusClass(status);
+        const head = document.createElement('div');
+        head.style.display='flex'; head.style.justifyContent='space-between'; head.style.alignItems='center'; head.style.marginBottom='8px';
+        const title = document.createElement('div'); title.style.fontWeight='600'; title.textContent = label;
+        head.appendChild(title);
+        if(status){
+          const st = document.createElement('span'); st.className = `status ${sClass}`; st.textContent = status; head.appendChild(st);
+        }
+        card.appendChild(head);
+
+        // Progress if any
+        const pKeys = ['percent','progress','completion','complete','done'];
+        let pct=null; for(const k of pKeys){ if(k in item){ pct = percentFrom(item[k]); if(pct!=null) break; }}
+        if(pct!=null){
+          const bar = document.createElement('div'); bar.className='progress';
+          const fill = document.createElement('span'); fill.style.width = pct+"%"; bar.appendChild(fill);
+          const labelEl = document.createElement('div'); labelEl.className='muted'; labelEl.style.marginTop='6px'; labelEl.textContent = `Progress: ${pct}%`;
+          card.appendChild(bar); card.appendChild(labelEl);
+        }
+
+        // Key-values of remaining fields
+        const table = document.createElement('div'); table.className='kv'; table.style.marginTop='8px';
+        Object.entries(item).forEach(([k,v]) => {
+          if(['status','percent','progress','completion','complete','done'].includes(k)) return;
+          if(['name','title','id','key','project','task'].includes(k)) return;
+          const kEl = document.createElement('div'); kEl.className='k'; kEl.textContent = k;
+          const vEl = document.createElement('div');
+          if(Array.isArray(v) || (v && typeof v === 'object')){
+            vEl.textContent = JSON.stringify(v, null, 2);
+          } else {
+            vEl.textContent = String(v);
+          }
+          table.appendChild(kEl); table.appendChild(vEl);
         });
+        card.appendChild(table);
+      } else {
+        const t = document.createElement('div'); t.textContent = String(item);
+        card.appendChild(t);
+      }
 
-        // Load data from various persistence methods
-        async function loadData() {
-            try {
-                if (GITHUB_CONFIG.USE_GITHUB && GITHUB_CONFIG.TOKEN) {
-                    await loadFromGitHub();
-                } else if (GITHUB_CONFIG.USE_GIST && GITHUB_CONFIG.GIST_ID) {
-                    await loadFromGist();
-                } else if (FILE_CONFIG.USE_FILE) {
-                    await loadFromFile();
-                } else {
-                    throw new Error('No persistence method configured');
-                }
-                console.log('Data loaded successfully from external source');
-            } catch (error) {
-                console.warn('External data loading failed, using localStorage:', error.message);
-                loadFromLocalStorage();
-            }
-            renderContent();
+      grid.appendChild(card);
+    });
+
+    sec.appendChild(grid);
+    sectionsEl.appendChild(sec);
+  }
+
+  function renderAll(obj){
+    clear(sectionsEl);
+
+    // Overview
+    renderOverview(obj);
+
+    // Render arrays at the top level as separate sections
+    let renderedAny = false;
+    Object.entries(obj).forEach(([k,v]) => {
+      if(Array.isArray(v)){
+        renderedAny = true;
+        renderArraySection(k, v);
+      }
+    });
+
+    if(!renderedAny){
+      // If there are no arrays, show the whole object as a single section of KVs
+      const sec = document.createElement('section'); sec.className='card';
+      const h = document.createElement('h2'); h.textContent = 'Data'; h.style.marginTop='6px'; h.style.fontSize='16px'; h.style.marginBottom='12px';
+      sec.appendChild(h);
+      const table = document.createElement('div'); table.className='kv';
+      Object.entries(obj).forEach(([k,v]) => {
+        const kEl = document.createElement('div'); kEl.className='k'; kEl.textContent = k;
+        const vEl = document.createElement('div'); vEl.textContent = (typeof v === 'object') ? JSON.stringify(v, null, 2) : String(v);
+        table.appendChild(kEl); table.appendChild(vEl);
+      });
+      sec.appendChild(table);
+      sectionsEl.appendChild(sec);
+    }
+
+    // Raw JSON
+    rawEl.textContent = JSON.stringify(obj, null, 2);
+  }
+
+  function applySearch(){
+    const q = (searchBox.value || '').trim().toLowerCase();
+    const cards = sectionsEl.querySelectorAll('[data-search]');
+    if(!q){ cards.forEach(c => c.style.display=''); return; }
+    cards.forEach(c => {
+      const t = c.getAttribute('data-search');
+      c.style.display = t.includes(q) ? '' : 'none';
+    });
+  }
+
+  async function load(){
+    errorBox.style.display='none';
+    try{
+      const [obj, meta] = await Promise.all([fetchJSON(), fetchCommitMeta()]);
+      dataCache = obj;
+      renderAll(obj);
+
+      // Commit meta
+      if(meta){
+        commitPill.innerHTML = meta.htmlUrl ? `<a href="${meta.htmlUrl}" target="_blank" rel="noopener">${meta.sha}</a>` : meta.sha;
+        if(!obj.lastUpdated && meta.date){
+          lastUpdatedEl.textContent = fmtDate(meta.date);
         }
+      } else {
+        commitPill.textContent = '—';
+      }
+    } catch(err){
+      console.error(err);
+      errorText.textContent = `${err.message || err}`;
+      errorBox.style.display='';
+    }
+  }
 
-        // Save data using configured persistence method
-        async function saveData() {
-            try {
-                if (GITHUB_CONFIG.USE_GITHUB && GITHUB_CONFIG.TOKEN) {
-                    await saveToGitHub();
-                } else if (GITHUB_CONFIG.USE_GIST && GITHUB_CONFIG.GIST_ID && GITHUB_CONFIG.TOKEN) {
-                    await saveToGist();
-                } else {
-                    throw new Error('GitHub persistence not configured');
-                }
-                console.log('Data saved to external source');
-            } catch (error) {
-                console.warn('External save failed, saving to localStorage:', error.message);
-            }
-            
-            // Always save to localStorage as backup
-            localStorage.setItem('migrationData', JSON.stringify(migrationData));
-            localStorage.setItem('lastUpdated', new Date().toISOString());
-        }
+  function scheduleAutoRefresh(){
+    if(refreshTimer){ clearInterval(refreshTimer); refreshTimer = null; }
+    const secs = Number(autoRefreshSel.value || '0');
+    if(secs > 0){
+      refreshTimer = setInterval(load, secs*1000);
+    }
+  }
 
-        // Load from GitHub repository
-        async function loadFromGitHub() {
-            const url = `https://api.github.com/repos/${GITHUB_CONFIG.OWNER}/${GITHUB_CONFIG.REPO}/contents/${GITHUB_CONFIG.FILE_PATH}`;
-            const response = await fetch(url, {
-                headers: {
-                    'Authorization': `token ${GITHUB_CONFIG.TOKEN}`,
-                    'Accept': 'application/vnd.github.v3+json'
-                }
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                const content = JSON.parse(atob(data.content));
-                migrationData = content;
-                // Store SHA for updates
-                localStorage.setItem('github_sha', data.sha);
-            } else {
-                throw new Error(`GitHub API error: ${response.status}`);
-            }
-        }
+  // Init
+  branchPill.textContent = BRANCH;
+  pathPill.textContent = PATH;
+  repoLink.href = `https://github.com/${OWNER}/${REPO}`;
 
-        // Save to GitHub repository
-        async function saveToGitHub() {
-            const url = `https://api.github.com/repos/${GITHUB_CONFIG.OWNER}/${GITHUB_CONFIG.REPO}/contents/${GITHUB_CONFIG.FILE_PATH}`;
-            const sha = localStorage.getItem('github_sha');
-            
-            const payload = {
-                message: `Update migration data - ${new Date().toISOString()}`,
-                content: btoa(JSON.stringify(migrationData, null, 2)),
-                branch: GITHUB_CONFIG.BRANCH
-            };
-            
-            if (sha) {
-                payload.sha = sha;
-            }
-            
-            const response = await fetch(url, {
-                method: 'PUT',
-                headers: {
-                    'Authorization': `token ${GITHUB_CONFIG.TOKEN}`,
-                    'Accept': 'application/vnd.github.v3+json',
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                localStorage.setItem('github_sha', data.content.sha);
-            } else {
-                throw new Error(`GitHub save failed: ${response.status}`);
-            }
-        }
+  refreshBtn.addEventListener('click', load);
+  searchBox.addEventListener('input', applySearch);
+  autoRefreshSel.addEventListener('change', scheduleAutoRefresh);
 
-        // Load from GitHub Gist
-        async function loadFromGist() {
-            const url = `https://api.github.com/gists/${GITHUB_CONFIG.GIST_ID}`;
-            const response = await fetch(url);
-            
-            if (response.ok) {
-                const gist = await response.json();
-                const fileContent = gist.files[GITHUB_CONFIG.GIST_FILENAME].content;
-                migrationData = JSON.parse(fileContent);
-            } else {
-                throw new Error(`Gist load failed: ${response.status}`);
-            }
-        }
-
-        // Save to GitHub Gist
-        async function saveToGist() {
-            const url = `https://api.github.com/gists/${GITHUB_CONFIG.GIST_ID}`;
-            
-            const payload = {
-                description: `Migration Tracker Data - Updated ${new Date().toISOString()}`,
-                files: {
-                    [GITHUB_CONFIG.GIST_FILENAME]: {
-                        content: JSON.stringify(migrationData, null, 2)
-                    }
-                }
-            };
-            
-            const response = await fetch(url, {
-                method: 'PATCH',
-                headers: {
-                    'Authorization': `token ${GITHUB_CONFIG.TOKEN}`,
-                    'Accept': 'application/vnd.github.v3+json',
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            });
-            
-            if (!response.ok) {
-                throw new Error(`Gist save failed: ${response.status}`);
-            }
-        }
-
-        // Load from static file
-        async function loadFromFile() {
-            const response = await fetch(FILE_CONFIG.DATA_FILE_URL);
-            if (response.ok) {
-                migrationData = await response.json();
-            } else {
-                throw new Error(`File load failed: ${response.status}`);
-            }
-        }
-
-        // Load from localStorage (fallback)
-        function loadFromLocalStorage() {
-            const saved = localStorage.getItem('migrationData');
-            if (saved) {
-                migrationData = JSON.parse(saved);
-            } else {
-                migrationData = getDefaultData();
-            }
-        }
-
-        // Get default migration data
-        function getDefaultData() {
-            return {
-                'sso-cutover': {
-                    title: 'SSO Cutover',
-                    description: 'Making applications like Workday use Microsoft instead of Google. Switching single sign-on provider for all integrated applications including Workday, learning management systems, and third-party tools.',
-                    status: 'in-progress',
-                    statusText: 'June 27, 2025 at 7:00 PM AZ Time',
-                    subItems: {
-                        'zendesk': {
-                            title: 'Zendesk Support Platform',
-                            description: 'Customer support ticket system migration',
-                            progress: 100,
-                            status: 'completed'
-                        },
-                        'blackline': {
-                            title: 'Blackline Financial System',
-                            description: 'Financial reconciliation platform',
-                            progress: 100,
-                            status: 'completed'
-                        },
-                        'quantum': {
-                            title: 'Quantum Analytics',
-                            description: 'Data analytics and reporting platform',
-                            progress: 100,
-                            status: 'completed'
-                        },
-                        'workday': {
-                            title: 'Workday HR Platform',
-                            description: 'Human resources management system',
-                            progress: 100,
-                            status: 'completed'
-                        },
-                        'tableau': {
-                            title: 'Tableau Business Intelligence',
-                            description: 'Data visualization and analytics tool',
-                            progress: 100,
-                            status: 'completed'
-                        },
-                        'chatgpt': {
-                            title: 'ChatGPT Integration',
-                            description: 'AI-powered assistant integration',
-                            progress: 25,
-                            status: 'in-progress'
-                        },
-                        'asana': {
-                            title: 'Asana Project Management',
-                            description: 'Team collaboration and project tracking',
-                            progress: 0,
-                            status: 'not-started'
-                        },
-                        'nectar': {
-                            title: 'Nectar Employee Recognition',
-                            description: 'Employee rewards and recognition platform',
-                            progress: 0,
-                            status: 'not-started'
-                        }
-                    }
-                }
-            };
-        }
-
-        // Calculate overall progress for a section
-        function calculateOverallProgress(subItems) {
-            if (!subItems || Object.keys(subItems).length === 0) return 0;
-            const items = Object.values(subItems);
-            const totalProgress = items.reduce((sum, item) => sum + item.progress, 0);
-            return Math.round(totalProgress / items.length);
-        }
-
-        // Handle status change in modal - auto-set progress to 100% when completed
-        function handleStatusChange() {
-            const statusSelect = document.getElementById('subItemStatus');
-            const progressInput = document.getElementById('subItemProgress');
-            
-            if (statusSelect.value === 'completed') {
-                progressInput.value = 100;
-            } else if (statusSelect.value === 'not-started') {
-                progressInput.value = 0;
-            }
-        }
-
-        // Quick complete function
-        function quickComplete(sectionId, subItemId) {
-            if (!isAdminMode) return;
-            
-            if (migrationData[sectionId] && migrationData[sectionId].subItems && migrationData[sectionId].subItems[subItemId]) {
-                migrationData[sectionId].subItems[subItemId].progress = 100;
-                migrationData[sectionId].subItems[subItemId].status = 'completed';
-                saveData();
-                renderContent();
-                updateLastModified();
-                showNotification('Task marked as complete!', 'success');
-            }
-        }
-
-        // Render migration content
-        function renderContent() {
-            const container = document.getElementById('migration-content');
-            container.innerHTML = '';
-
-            Object.keys(migrationData).forEach(id => {
-                const item = migrationData[id];
-                const overallProgress = calculateOverallProgress(item.subItems);
-                
-                const div = document.createElement('div');
-                div.className = 'migration-item';
-                div.setAttribute('data-id', id);
-                div.setAttribute('draggable', isAdminMode ? 'true' : 'false');
-                
-                div.innerHTML = `
-                    <div class="migration-header">
-                        <h2>${item.title}</h2>
-                        <div class="description">${item.description}</div>
-                        ${isAdminMode ? '<div style="position: absolute; top: 10px; left: 10px; color: rgba(255,255,255,0.7); font-size: 12px;">📋 Click Edit or drag to reorder</div>' : ''}
-                    </div>
-                    
-                    <div class="migration-body">
-                        <div class="status-section">
-                            <div class="status-badge ${item.status}">
-                                ${getStatusLabel(item.status)}${item.statusText ? ' - ' + item.statusText : ''}
-                            </div>
-                        </div>
-                        
-                        <div class="overall-progress">
-                            <div class="progress-label">
-                                <span>Overall Progress</span>
-                                <span class="progress-percentage">${overallProgress}%</span>
-                            </div>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: ${overallProgress}%"></div>
-                            </div>
-                        </div>
-                        
-                        <div class="sub-items">
-                            <div class="sub-items-header">
-                                <div class="sub-items-title">Migration Components</div>
-                                ${isAdminMode ? `<button class="add-sub-item" onclick="addSubItem('${id}')">Add Item</button>` : ''}
-                            </div>
-                            ${renderSubItems(id, item.subItems)}
-                        </div>
-                    </div>
-                `;
-                
-                // Create and add the edit button separately to ensure proper event binding
-                if (isAdminMode) {
-                    const editButton = document.createElement('button');
-                    editButton.className = 'edit-button';
-                    editButton.textContent = 'Edit';
-                    editButton.title = 'Edit this section';
-                    editButton.addEventListener('click', function(e) {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        console.log('Edit button clicked for section:', id);
-                        editSection(id);
-                    });
-                    div.appendChild(editButton);
-                }
-                
-                container.appendChild(div);
-
-                // Add drag and drop event listeners if in admin mode
-                if (isAdminMode) {
-                    div.addEventListener('dragstart', handleDragStart);
-                    div.addEventListener('dragover', handleDragOver);
-                    div.addEventListener('drop', handleDrop);
-                    div.addEventListener('dragend', handleDragEnd);
-                }
-
-                // Animate progress bars after rendering
-                setTimeout(() => {
-                    const progressFills = div.querySelectorAll('.progress-fill, .sub-progress-fill');
-                    progressFills.forEach(fill => {
-                        const width = fill.style.width;
-                        fill.style.width = '0%';
-                        setTimeout(() => {
-                            fill.style.width = width;
-                        }, 100);
-                    });
-                }, 100);
-            });
-        }
-
-        // Drag and drop functionality
-        let draggedElement = null;
-
-        function handleDragStart(e) {
-            if (!isAdminMode) return;
-            draggedElement = e.target;
-            e.target.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/html', e.target.getAttribute('data-id'));
-        }
-
-        function handleDragOver(e) {
-            if (!isAdminMode) return;
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            const target = e.target.closest('.migration-item');
-            if (target && target !== draggedElement) {
-                target.classList.add('drag-over');
-            }
-        }
-
-        function handleDrop(e) {
-            if (!isAdminMode) return;
-            e.preventDefault();
-            const target = e.target.closest('.migration-item');
-            
-            if (target && target !== draggedElement) {
-                const draggedId = draggedElement.getAttribute('data-id');
-                const targetId = target.getAttribute('data-id');
-                
-                // Reorder the data
-                reorderSections(draggedId, targetId);
-            }
-            
-            // Clean up classes
-            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-        }
-
-        function handleDragEnd(e) {
-            if (!isAdminMode) return;
-            e.target.classList.remove('dragging');
-            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-            draggedElement = null;
-        }
-
-        function reorderSections(draggedId, targetId) {
-            const keys = Object.keys(migrationData);
-            const draggedIndex = keys.indexOf(draggedId);
-            const targetIndex = keys.indexOf(targetId);
-            
-            if (draggedIndex === -1 || targetIndex === -1) return;
-            
-            // Create new ordered object
-            const newData = {};
-            const draggedData = migrationData[draggedId];
-            
-            keys.forEach((key, index) => {
-                if (key === draggedId) return; // Skip dragged item for now
-                
-                if (index === targetIndex) {
-                    // Insert dragged item before target
-                    newData[draggedId] = draggedData;
-                    newData[key] = migrationData[key];
-                } else {
-                    newData[key] = migrationData[key];
-                }
-            });
-            
-            // If target was the last item and we're dragging after it
-            if (targetIndex === keys.length - 1 && !newData[draggedId]) {
-                newData[draggedId] = draggedData;
-            }
-            
-            migrationData = newData;
-            saveData();
-            renderContent();
-            updateLastModified();
-            showNotification('Sections reordered', 'success');
-        }
-
-        // Render sub-items
-        function renderSubItems(sectionId, subItems) {
-            if (!subItems || Object.keys(subItems).length === 0) {
-                return '<div style="text-align: center; color: #707372; padding: 20px;">No components added yet</div>';
-            }
-
-            return Object.keys(subItems).map(subId => {
-                const subItem = subItems[subId];
-                return `
-                    <div class="sub-item">
-                        <div class="sub-item-header">
-                            <div class="sub-item-title" onclick="${isAdminMode ? `editSubItem('${sectionId}', '${subId}')` : ''}">${subItem.title}</div>
-                            ${isAdminMode ? `
-                                <div class="sub-item-actions">
-                                    <button class="sub-item-btn" onclick="editSubItem('${sectionId}', '${subId}')">Edit</button>
-                                    <button class="sub-item-btn" onclick="confirmDeleteSubItem('${sectionId}', '${subId}')">Delete</button>
-                                </div>
-                            ` : ''}
-                        </div>
-                        ${subItem.description ? `<div class="sub-item-description">${subItem.description}</div>` : ''}
-                        <div class="sub-progress-bar">
-                            <div class="sub-progress-fill" style="width: ${subItem.progress}%"></div>
-                        </div>
-                        <div class="sub-item-status">
-                            <span>${subItem.progress}% - ${getSubItemStatusLabel(subItem.status)}</span>
-                            ${isAdminMode && subItem.status !== 'completed' ? `
-                                <button class="status-complete-btn" onclick="quickComplete('${sectionId}', '${subId}')">Mark Complete</button>
-                            ` : ''}
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        // Get status label
-        function getStatusLabel(status) {
-            switch(status) {
-                case 'completed': return 'Completed';
-                case 'in-progress': return 'In Progress';
-                case 'pending': return 'Pending';
-                default: return 'Unknown';
-            }
-        }
-
-        // Get sub-item status label
-        function getSubItemStatusLabel(status) {
-            switch(status) {
-                case 'completed': return 'Completed';
-                case 'in-progress': return 'In Progress';
-                case 'not-started': return 'Not Started';
-                case 'blocked': return 'Blocked';
-                default: return 'Unknown';
-            }
-        }
-
-        // Show password modal
-        function showPasswordModal() {
-            document.getElementById('passwordModal').style.display = 'block';
-        }
-
-        // Close modal
-        function closeModal(modalId) {
-            document.getElementById(modalId).style.display = 'none';
-            if (modalId === 'passwordModal') {
-                document.getElementById('adminPassword').value = '';
-            }
-        }
-
-        // Check password
-        function checkPassword() {
-            const password = document.getElementById('adminPassword').value;
-            if (password === ADMIN_PASSWORD) {
-                isAdminMode = true;
-                closeModal('passwordModal');
-                document.getElementById('adminPanel').classList.add('active');
-                renderContent(); // Re-render to show edit buttons
-                showNotification('Admin mode activated', 'success');
-            } else {
-                showNotification('Incorrect password', 'error');
-            }
-        }
-
-        // Edit section - enhanced with sub-items management
-        function editSection(id) {
-            if (!isAdminMode) {
-                showNotification('Admin mode required', 'error');
-                return;
-            }
-            
-            console.log('Editing section:', id);
-            console.log('Migration data:', migrationData[id]);
-            
-            currentEditingId = id;
-            const item = migrationData[id];
-            
-            if (!item) {
-                showNotification('Section not found: ' + id, 'error');
-                console.error('Section not found:', id, 'Available sections:', Object.keys(migrationData));
-                return;
-            }
-            
-            // Populate the form with existing data
-            document.getElementById('sectionTitle').value = item.title || '';
-            document.getElementById('sectionDescription').value = item.description || '';
-            document.getElementById('sectionStatus').value = item.status || 'pending';
-            document.getElementById('statusText').value = item.statusText || '';
-            
-            // Populate sub-items list
-            updateSubItemsList();
-            
-            // Show the modal
-            document.getElementById('editModal').style.display = 'block';
-            
-            // Focus on the title field
-            setTimeout(() => {
-                document.getElementById('sectionTitle').focus();
-            }, 100);
-            
-            showNotification('Edit form opened for: ' + item.title, 'info');
-        }
-
-        // Update the sub-items list in the edit modal
-        function updateSubItemsList() {
-            const container = document.getElementById('subItemsContainer');
-            if (!container) return;
-            
-            const subItems = migrationData[currentEditingId]?.subItems || {};
-            const subItemKeys = Object.keys(subItems);
-            
-            if (subItemKeys.length === 0) {
-                container.innerHTML = '<div style="text-align: center; color: var(--vertex-gray); padding: 20px;">No sub-items yet</div>';
-                return;
-            }
-            
-            container.innerHTML = subItemKeys.map((subId, index) => {
-                const subItem = subItems[subId];
-                return `
-                    <div class="sub-items-list-item" data-sub-id="${subId}">
-                        <div class="sub-item-info">
-                            <strong>${subItem.title}</strong><br>
-                            <small style="color: var(--vertex-gray);">${subItem.progress}% - ${getSubItemStatusLabel(subItem.status)}</small>
-                        </div>
-                        <div class="sub-item-controls">
-                            <button class="reorder-btn" onclick="moveSubItem('${subId}', -1)" ${index === 0 ? 'disabled' : ''}>↑</button>
-                            <button class="reorder-btn" onclick="moveSubItem('${subId}', 1)" ${index === subItemKeys.length - 1 ? 'disabled' : ''}>↓</button>
-                            <button class="sub-item-btn" onclick="editSubItemInModal('${subId}')">Edit</button>
-                            <button class="sub-item-btn" onclick="deleteSubItemFromModal('${subId}')">Delete</button>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        // Move sub-item up or down
-        function moveSubItem(subItemId, direction) {
-            const subItems = migrationData[currentEditingId].subItems;
-            const keys = Object.keys(subItems);
-            const currentIndex = keys.indexOf(subItemId);
-            const newIndex = currentIndex + direction;
-            
-            if (newIndex < 0 || newIndex >= keys.length) return;
-            
-            // Create new ordered object
-            const newSubItems = {};
-            const reorderedKeys = [...keys];
-            
-            // Swap positions
-            [reorderedKeys[currentIndex], reorderedKeys[newIndex]] = [reorderedKeys[newIndex], reorderedKeys[currentIndex]];
-            
-            // Rebuild object in new order
-            reorderedKeys.forEach(key => {
-                newSubItems[key] = subItems[key];
-            });
-            
-            migrationData[currentEditingId].subItems = newSubItems;
-            updateSubItemsList();
-            showNotification('Sub-item reordered', 'success');
-        }
-
-        // Edit sub-item from main modal
-        function editSubItemInModal(subItemId) {
-            currentSubItemId = subItemId;
-            const subItem = migrationData[currentEditingId].subItems[subItemId];
-            
-            document.getElementById('subItemTitle').value = subItem.title;
-            document.getElementById('subItemDescription').value = subItem.description || '';
-            document.getElementById('subItemProgress').value = subItem.progress;
-            document.getElementById('subItemStatus').value = subItem.status;
-            
-            document.getElementById('subItemModal').style.display = 'block';
-        }
-
-        // Delete sub-item from main modal
-        function deleteSubItemFromModal(subItemId) {
-            if (confirm('Are you sure you want to delete this sub-item?')) {
-                delete migrationData[currentEditingId].subItems[subItemId];
-                updateSubItemsList();
-                showNotification('Sub-item deleted', 'success');
-            }
-        }
-
-        // Add new sub-item from main modal
-        function addSubItemFromModal() {
-            currentSubItemId = 'subitem-' + Date.now();
-            
-            // Clear form
-            document.getElementById('subItemTitle').value = '';
-            document.getElementById('subItemDescription').value = '';
-            document.getElementById('subItemProgress').value = '0';
-            document.getElementById('subItemStatus').value = 'not-started';
-            
-            document.getElementById('subItemModal').style.display = 'block';
-        }
-
-        // Save section
-        function saveSection() {
-            const title = document.getElementById('sectionTitle').value.trim();
-            const description = document.getElementById('sectionDescription').value.trim();
-            const status = document.getElementById('sectionStatus').value;
-            const statusText = document.getElementById('statusText').value.trim();
-            
-            if (!title || !description) {
-                showNotification('Title and description are required', 'error');
-                return;
-            }
-            
-            // If no currentEditingId, this is a new section
-            if (!currentEditingId) {
-                currentEditingId = 'section-' + Date.now();
-            }
-            
-            // Preserve existing sub-items when editing, or initialize empty object for new sections
-            const existingSubItems = migrationData[currentEditingId]?.subItems || {};
-            
-            // Update or create the section
-            migrationData[currentEditingId] = {
-                title,
-                description,
-                status,
-                statusText,
-                subItems: existingSubItems
-            };
-            
-            saveData();
-            renderContent();
-            updateLastModified();
-            closeModal('editModal');
-            showNotification('Section saved successfully', 'success');
-            currentEditingId = null;
-        }
-
-        // Delete section
-        function deleteSection() {
-            if (!currentEditingId) {
-                showNotification('No section selected for deletion', 'error');
-                return;
-            }
-            
-            const sectionTitle = migrationData[currentEditingId]?.title || 'this section';
-            
-            if (confirm(`Are you sure you want to delete "${sectionTitle}" and all its sub-items? This action cannot be undone.`)) {
-                delete migrationData[currentEditingId];
-                saveData();
-                renderContent();
-                updateLastModified();
-                closeModal('editModal');
-                showNotification('Section deleted successfully', 'success');
-                currentEditingId = null;
-            }
-        }
-
-        // Add new section
-        function addNewSection() {
-            if (!isAdminMode) return;
-            
-            const id = 'section-' + Date.now();
-            currentEditingId = id;
-            
-            // Clear form
-            document.getElementById('sectionTitle').value = '';
-            document.getElementById('sectionDescription').value = '';
-            document.getElementById('sectionStatus').value = 'pending';
-            document.getElementById('statusText').value = '';
-            
-            document.getElementById('editModal').style.display = 'block';
-        }
-
-        // Add sub-item
-        function addSubItem(sectionId) {
-            if (!isAdminMode) return;
-            
-            currentEditingId = sectionId;
-            currentSubItemId = 'subitem-' + Date.now();
-            
-            // Clear form
-            document.getElementById('subItemTitle').value = '';
-            document.getElementById('subItemProgress').value = '0';
-            document.getElementById('subItemStatus').value = 'not-started';
-            
-            document.getElementById('subItemModal').style.display = 'block';
-        }
-
-        // Edit sub-item
-        function editSubItem(sectionId, subItemId) {
-            if (!isAdminMode) return;
-            
-            currentEditingId = sectionId;
-            currentSubItemId = subItemId;
-            const subItem = migrationData[sectionId].subItems[subItemId];
-            
-            document.getElementById('subItemTitle').value = subItem.title;
-            document.getElementById('subItemProgress').value = subItem.progress;
-            document.getElementById('subItemStatus').value = subItem.status;
-            
-            document.getElementById('subItemModal').style.display = 'block';
-        }
-
-        // Save sub-item
-        function saveSubItem() {
-            if (!currentEditingId || !currentSubItemId) return;
-            
-            const title = document.getElementById('subItemTitle').value;
-            const progress = parseInt(document.getElementById('subItemProgress').value);
-            const status = document.getElementById('subItemStatus').value;
-            
-            if (!title) {
-                showNotification('Title is required', 'error');
-                return;
-            }
-            
-            if (!migrationData[currentEditingId].subItems) {
-                migrationData[currentEditingId].subItems = {};
-            }
-            
-            migrationData[currentEditingId].subItems[currentSubItemId] = {
-                title,
-                progress: Math.max(0, Math.min(100, progress)),
-                status
-            };
-            
-            saveData();
-            renderContent();
-            updateLastModified();
-            closeModal('subItemModal');
-            showNotification('Sub-item saved successfully', 'success');
-            currentEditingId = null;
-            currentSubItemId = null;
-        }
-
-        // Confirm delete sub-item
-        function confirmDeleteSubItem(sectionId, subItemId) {
-            if (!isAdminMode) return;
-            
-            if (confirm('Are you sure you want to delete this sub-item?')) {
-                delete migrationData[sectionId].subItems[subItemId];
-                saveData();
-                renderContent();
-                updateLastModified();
-                showNotification('Sub-item deleted successfully', 'success');
-            }
-        }
-
-        // Delete sub-item (from modal)
-        function deleteSubItem() {
-            if (!isAdminMode) return;
-            
-            if (!currentEditingId || !currentSubItemId) return;
-            
-            if (confirm('Are you sure you want to delete this sub-item?')) {
-                delete migrationData[currentEditingId].subItems[currentSubItemId];
-                saveData();
-                renderContent();
-                updateLastModified();
-                closeModal('subItemModal');
-                showNotification('Sub-item deleted successfully', 'success');
-                currentEditingId = null;
-                currentSubItemId = null;
-            }
-        }
-
-        // Show notification
-        function showNotification(message, type = 'info') {
-            const notification = document.createElement('div');
-            notification.className = `notification ${type}`;
-            notification.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: ${type === 'success' ? 'var(--tertiary-green)' : type === 'error' ? 'var(--danger-red)' : 'var(--vertex-blue)'};
-                color: white;
-                padding: 15px 20px;
-                border-radius: 8px;
-                z-index: 3000;
-                box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-                animation: slideIn 0.3s ease-out;
-                font-weight: 500;
-            `;
-            notification.textContent = message;
-            
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                notification.style.animation = 'slideOut 0.3s ease-in forwards';
-                setTimeout(() => {
-                    if (notification.parentNode) {
-                        notification.parentNode.removeChild(notification);
-                    }
-                }, 300);
-            }, 3000);
-        }
-
-        // Add notification animations
-        const notificationStyles = document.createElement('style');
-        notificationStyles.textContent = `
-            @keyframes slideIn {
-                from { transform: translateX(100%); opacity: 0; }
-                to { transform: translateX(0); opacity: 1; }
-            }
-            @keyframes slideOut {
-                from { transform: translateX(0); opacity: 1; }
-                to { transform: translateX(100%); opacity: 0; }
-            }
-        `;
-        document.head.appendChild(notificationStyles);
-
-        // Update last modified time
-        function updateLastModified() {
-            const lastUpdated = localStorage.getItem('lastUpdated');
-            if (lastUpdated) {
-                const date = new Date(lastUpdated);
-                document.getElementById('last-update-time').textContent = date.toLocaleString();
-            } else {
-                document.getElementById('last-update-time').textContent = new Date().toLocaleString();
-            }
-        }
-
-        // Close modals when clicking outside
-        window.addEventListener('click', function(event) {
-            const modals = document.querySelectorAll('.modal');
-            modals.forEach(modal => {
-                if (event.target === modal) {
-                    closeModal(modal.id);
-                }
-            });
-        });
-
-        // Handle Enter key in password field
-        document.addEventListener('keypress', function(event) {
-            if (event.target.id === 'adminPassword' && event.key === 'Enter') {
-                checkPassword();
-            }
-        });
-
-        // Configure GitHub integration (admin only)
-        function setupGitHubIntegration() {
-            if (!isAdminMode) {
-                showNotification('Admin mode required', 'error');
-                return;
-            }
-            
-            const modal = document.createElement('div');
-            modal.className = 'modal';
-            modal.style.display = 'block';
-            modal.innerHTML = `
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <div class="modal-title">Setup GitHub Integration</div>
-                        <span class="close" onclick="this.closest('.modal').remove()">&times;</span>
-                    </div>
-                    <div class="modal-body">
-                        <h3 style="color: var(--vertex-blue); margin-bottom: 15px;">Step 1: Repository Information</h3>
-                        <div class="form-group">
-                            <label>GitHub Organization/Username:</label>
-                            <input type="text" id="githubOwner" value="${GITHUB_CONFIG.OWNER}" placeholder="your-org-name">
-                            <small style="color: var(--vertex-gray);">For enterprise accounts, this is your organization name</small>
-                        </div>
-                        <div class="form-group">
-                            <label>Repository Name:</label>
-                            <input type="text" id="githubRepo" value="${GITHUB_CONFIG.REPO}" placeholder="migration-tracker">
-                        </div>
-                        <div class="form-group">
-                            <label>Data File Path in Repository:</label>
-                            <input type="text" id="githubPath" value="${GITHUB_CONFIG.FILE_PATH}" placeholder="data/migration-data.json">
-                            <small style="color: var(--vertex-gray);">This file will be created automatically</small>
-                        </div>
-                        
-                        <h3 style="color: var(--vertex-blue); margin: 25px 0 15px 0;">Step 2: Authentication</h3>
-                        <div class="form-group">
-                            <label>GitHub Personal Access Token:</label>
-                            <input type="password" id="githubToken" value="${GITHUB_CONFIG.TOKEN}" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
-                            <small style="color: var(--vertex-gray);">
-                                <strong>Create token:</strong> GitHub → Settings → Developer Settings → Personal Access Tokens → Generate new token<br>
-                                <strong>Required permissions:</strong> repo (Full control of private repositories)
-                            </small>
-                        </div>
-                        
-                        <h3 style="color: var(--vertex-blue); margin: 25px 0 15px 0;">Step 3: Enable Integration</h3>
-                        <div style="margin: 20px 0;">
-                            <label style="display: flex; align-items: center;">
-                                <input type="checkbox" id="useGitHub" ${GITHUB_CONFIG.USE_GITHUB ? 'checked' : ''}> 
-                                <span style="margin-left: 8px;"><strong>Enable GitHub persistence</strong></span>
-                            </label>
-                            <small style="color: var(--vertex-gray); margin-left: 24px;">
-                                When enabled, all changes will save to your GitHub repository automatically
-                            </small>
-                        </div>
-                        
-                        <div style="margin-top: 30px; padding: 15px; background: rgba(255,176,0,0.1); border-radius: 8px;">
-                            <strong style="color: var(--vertex-blue);">Your GitHub Pages URL will be:</strong><br>
-                            <span style="color: var(--vertex-gray); font-family: monospace;">https://</span><input type="text" id="displayOwner" style="border: none; background: transparent; font-family: monospace; width: auto;" readonly><span style="color: var(--vertex-gray); font-family: monospace;">.github.io/</span><input type="text" id="displayRepo" style="border: none; background: transparent; font-family: monospace; width: auto;" readonly>
-                        </div>
-                        
-                        <div style="margin-top: 20px;">
-                            <button class="btn btn-success" onclick="saveGitHubConfig()">Save & Test Configuration</button>
-                            <button class="btn btn-secondary" onclick="this.closest('.modal').remove()">Cancel</button>
-                            <button class="btn" onclick="testGitHubConnection()" style="background: var(--vertex-gold);">Test Connection</button>
-                        </div>
-                    </div>
-                </div>
-            `;
-            document.body.appendChild(modal);
-            
-            // Update display URLs as user types
-            document.getElementById('githubOwner').addEventListener('input', updateDisplayURL);
-            document.getElementById('githubRepo').addEventListener('input', updateDisplayURL);
-            updateDisplayURL();
-        }
-
-        function updateDisplayURL() {
-            const owner = document.getElementById('githubOwner').value || 'your-org';
-            const repo = document.getElementById('githubRepo').value || 'repository';
-            document.getElementById('displayOwner').value = owner;
-            document.getElementById('displayRepo').value = repo;
-        }
-
-        function saveGitHubConfig() {
-            GITHUB_CONFIG.OWNER = document.getElementById('githubOwner').value.trim();
-            GITHUB_CONFIG.REPO = document.getElementById('githubRepo').value.trim();
-            GITHUB_CONFIG.FILE_PATH = document.getElementById('githubPath').value.trim();
-            GITHUB_CONFIG.TOKEN = document.getElementById('githubToken').value.trim();
-            GITHUB_CONFIG.USE_GITHUB = document.getElementById('useGitHub').checked;
-            
-            if (!GITHUB_CONFIG.OWNER || !GITHUB_CONFIG.REPO || !GITHUB_CONFIG.TOKEN) {
-                showNotification('Please fill in all required fields', 'error');
-                return;
-            }
-            
-            // Save config to localStorage
-            localStorage.setItem('github_config', JSON.stringify(GITHUB_CONFIG));
-            
-            document.querySelector('.modal').remove();
-            showNotification('GitHub configuration saved', 'success');
-            
-            // Test the connection immediately
-            setTimeout(testGitHubConnection, 1000);
-        }
-
-        // Load GitHub config from localStorage
-        function loadGitHubConfig() {
-            const saved = localStorage.getItem('github_config');
-            if (saved) {
-                Object.assign(GITHUB_CONFIG, JSON.parse(saved));
-            }
-        }
-
-        // Test GitHub connection
-        async function testGitHubConnection() {
-            if (!isAdminMode) {
-                console.log('Admin mode required');
-                return;
-            }
-            
-            try {
-                if (GITHUB_CONFIG.USE_GIST) {
-                    const response = await fetch(`https://api.github.com/gists/${GITHUB_CONFIG.GIST_ID}`);
-                    if (response.ok) {
-                        showNotification('GitHub Gist connection successful!', 'success');
-                    } else {
-                        throw new Error(`Gist not found: ${response.status}`);
-                    }
-                } else {
-                    const response = await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.OWNER}/${GITHUB_CONFIG.REPO}`, {
-                        headers: GITHUB_CONFIG.TOKEN ? { 'Authorization': `token ${GITHUB_CONFIG.TOKEN}` } : {}
-                    });
-                    if (response.ok) {
-                        showNotification('GitHub repository connection successful!', 'success');
-                    } else {
-                        throw new Error(`Repository not accessible: ${response.status}`);
-                    }
-                }
-            } catch (error) {
-                showNotification('GitHub connection failed: ' + error.message, 'error');
-                console.error('GitHub connection error:', error);
-            }
-        }
-
-        // Initialize GitHub config on load
-        document.addEventListener('DOMContentLoaded', function() {
-            loadGitHubConfig();
-        });
-
-        // Export data for server deployment
-        function exportForServer() {
-            if (!isAdminMode) {
-                console.log('Admin mode required');
-                return;
-            }
-            
-            const dataStr = JSON.stringify(migrationData, null, 2);
-            const dataBlob = new Blob([dataStr], {type: 'application/json'});
-            const url = URL.createObjectURL(dataBlob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = 'migration-data.json';
-            link.click();
-            URL.revokeObjectURL(url);
-            showNotification('Backup file exported! (Database saves automatically)', 'success');
-        }
-
-        // Export data for backup
-        function exportData() {
-            if (!isAdminMode) {
-                console.log('Admin mode required');
-                return;
-            }
-            
-            const dataStr = JSON.stringify(migrationData, null, 2);
-            const dataBlob = new Blob([dataStr], {type: 'application/json'});
-            const url = URL.createObjectURL(dataBlob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = 'migration-data-backup-' + new Date().toISOString().split('T')[0] + '.json';
-            link.click();
-            URL.revokeObjectURL(url);
-            showNotification('Data exported successfully', 'success');
-        }
-
-        function importData(jsonData) {
-            if (!isAdminMode) {
-                console.log('Admin mode required');
-                return;
-            }
-            
-            try {
-                migrationData = JSON.parse(jsonData);
-                saveData();
-                renderContent();
-                updateLastModified();
-                showNotification('Data imported successfully', 'success');
-            } catch (e) {
-                console.error('Invalid JSON data:', e);
-                showNotification('Import failed: Invalid JSON data', 'error');
-            }
-        }
-
-        // Reset all data (admin only, console access)
-        function resetData() {
-            if (!isAdminMode) {
-                console.log('Admin mode required');
-                return;
-            }
-            
-            if (confirm('This will delete ALL migration data. Are you absolutely sure?')) {
-                localStorage.removeItem('migrationData');
-                localStorage.removeItem('lastUpdated');
-                location.reload();
-            }
-        }
-
-        // Console helper functions info
-        console.log('Migration Tracker Admin Console Commands:');
-        console.log('- exportData(): Export migration data as JSON');
-        console.log('- importData(jsonString): Import migration data from JSON');
-        console.log('- resetData(): Reset all data (WARNING: Destructive!)');
-    </script>
+  load();
+  scheduleAutoRefresh();
+})();
+</script>
 </body>
 </html>
